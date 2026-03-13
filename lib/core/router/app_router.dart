@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../constants/enums.dart';
@@ -25,6 +24,12 @@ import '../../screens/staff/shift_summary_screen.dart';
 import '../../screens/staff/sales_history_screen.dart';
 import '../../screens/staff/work_schedule_screen.dart';
 
+// Warehouse
+import '../../screens/warehouse/warehouse_shell.dart';
+import '../../screens/warehouse/warehouse_store_list_screen.dart';
+import '../../screens/warehouse/warehouse_product_screen.dart';
+import '../../screens/warehouse/warehouse_transfer_screen.dart';
+
 // CEO Shell
 import '../../screens/ceo/ceo_shell.dart';
 // IT Shell
@@ -47,8 +52,9 @@ class AppRouter {
               return '/ceo/dashboard';
             case UserRole.itAdmin:
               return '/it/roles';
-            case UserRole.storeManager:
             case UserRole.inventoryChecker:
+              return '/warehouse/products';
+            case UserRole.storeManager:
             case UserRole.staff:
               return '/staff/products';
           }
@@ -120,6 +126,27 @@ class AppRouter {
             GoRoute(
               path: '/staff/schedule',
               builder: (context, state) => const WorkScheduleScreen(),
+            ),
+          ],
+        ),
+
+        // ── Warehouse Routes ───────────────────────────────────────────────
+        ShellRoute(
+          builder: (context, state, child) => WarehouseShell(child: child),
+          routes: [
+            GoRoute(
+              path: '/warehouse/stores',
+              builder: (context, state) => const WarehouseStoreListScreen(),
+            ),
+            GoRoute(
+              path: '/warehouse/products',
+              builder: (context, state) => WarehouseProductScreen(
+                storeIdParam: state.uri.queryParameters['storeId'],
+              ),
+            ),
+            GoRoute(
+              path: '/warehouse/transfer',
+              builder: (context, state) => const WarehouseTransferScreen(),
             ),
           ],
         ),
