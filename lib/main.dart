@@ -8,6 +8,7 @@ import 'core/constants/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/providers/store_provider.dart';
+import 'core/providers/warehouse_provider.dart';
 import 'core/router/app_router.dart';
 import 'data/database_service.dart';
 
@@ -33,6 +34,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => StoreProvider()),
+        ChangeNotifierProvider(create: (_) => WarehouseProvider()),
       ],
       child: const MixueApp(),
     ),
