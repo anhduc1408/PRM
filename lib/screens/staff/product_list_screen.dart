@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/enums.dart';
-import '../../core/providers/auth_provider.dart';
-import '../../core/providers/store_provider.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/database_service.dart';
 import '../../models/product_model.dart';
@@ -17,20 +13,18 @@ class ProductListScreen extends StatefulWidget {
 
 class _ProductListScreenState extends State<ProductListScreen> {
   final _searchCtrl = TextEditingController();
-  ProductCategory? _selectedCategory;
+  String? _selectedCategory;
   late Future<List<ProductModel>> _productsFuture;
 
   @override
   void initState() {
     super.initState();
     // Assign directly — no setState in initState
-    final storeId = context.read<AuthProvider>().currentUser?.storeId ?? 'store1';
-    _productsFuture = DatabaseService.instance.getProductsForStore(storeId);
+    _productsFuture = DatabaseService.instance.getProductsActive();
   }
 
   void _load() {
-    final storeId = context.read<AuthProvider>().currentUser?.storeId ?? 'store1';
-    final f = DatabaseService.instance.getProductsForStore(storeId);
+    final f = DatabaseService.instance.getProductsActive();
     if (mounted) setState(() => _productsFuture = f);
   }
 
@@ -46,7 +40,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           }
           final all = snap.data ?? [];
           var filtered = all;
-          if (_selectedCategory != null) filtered = filtered.where((p) => p.category == _selectedCategory).toList();
+          if (_selectedCategory != null) filtered = filtered.where((p) => p.categoryName == _selectedCategory).toList();
           if (_searchCtrl.text.isNotEmpty) {
             final q = _searchCtrl.text.toLowerCase();
             filtered = filtered.where((p) => p.name.toLowerCase().contains(q)).toList();
@@ -69,11 +63,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       scrollDirection: Axis.horizontal,
                       child: Row(children: [
                         _CategoryChip(label: 'Tất cả', isSelected: _selectedCategory == null, onTap: () => setState(() => _selectedCategory = null)),
-                        ...ProductCategory.values.map((c) => _CategoryChip(
-                          label: c.label,
-                          isSelected: _selectedCategory == c,
-                          onTap: () => setState(() => _selectedCategory = _selectedCategory == c ? null : c),
-                        )),
+                        // Dynamic category chips from loaded products
+                        ...all.map((p) => p.categoryName ?? '').toSet()
+                            .map((cat) => _CategoryChip(
+                              label: cat,
+                              isSelected: _selectedCategory == cat,
+                              onTap: () => setState(() => _selectedCategory = _selectedCategory == cat ? null : cat),
+                            )),
                       ]),
                     ),
                   ],
@@ -154,7 +150,7 @@ class _ProductCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(6)),
-          child: Text(product.category.label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+          child: Text(product.categoryName ?? '', style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
         ),
       ]),
     );

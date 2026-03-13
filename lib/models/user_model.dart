@@ -1,45 +1,65 @@
 import 'package:mixue_manager/core/constants/enums.dart';
 
 class UserModel {
-  final String id;
-  final String name;
-  final String email;
-  final String password;
-  final UserRole role;
-  final String? storeId;
-  final String? storeName;
+  final int id;
+  final String username;
+  final String passwordHash;
+  final String fullName;
   final String? phone;
+  final String? email;
+  final UserRole role;
+  final int? storeId;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String status; // 'active' | 'inactive'
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   const UserModel({
     required this.id,
-    required this.name,
-    required this.email,
-    required this.password,
+    required this.username,
+    required this.passwordHash,
+    required this.fullName,
+    this.phone,
+    this.email,
     required this.role,
     this.storeId,
-    this.storeName,
-    this.phone,
+    this.startDate,
+    this.endDate,
+    this.status = 'active',
+    required this.createdAt,
+    required this.updatedAt,
   });
 
   UserModel copyWith({
-    String? id,
-    String? name,
-    String? email,
-    String? password,
-    UserRole? role,
-    String? storeId,
-    String? storeName,
+    int? id,
+    String? username,
+    String? passwordHash,
+    String? fullName,
     String? phone,
+    String? email,
+    UserRole? role,
+    int? storeId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? status,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return UserModel(
       id: id ?? this.id,
-      name: name ?? this.name,
+      username: username ?? this.username,
+      passwordHash: passwordHash ?? this.passwordHash,
+      fullName: fullName ?? this.fullName,
+      phone: phone ?? this.phone,
       email: email ?? this.email,
-      password: password ?? this.password,
       role: role ?? this.role,
       storeId: storeId ?? this.storeId,
-      storeName: storeName ?? this.storeName,
-      phone: phone ?? this.phone,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

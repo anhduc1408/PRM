@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/enums.dart';
-import '../../core/constants/app_colors.dart';
+import '../core/constants/enums.dart';
+import '../core/constants/app_colors.dart';
 
 class PeriodFilterTabs extends StatelessWidget {
   final PeriodFilter selected;
