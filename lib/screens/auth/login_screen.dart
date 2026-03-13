@@ -14,20 +14,20 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController();
   final _pwCtrl = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
   String? _error;
 
   final _quickLogins = [
-    (role: UserRole.ceoAdmin, email: 'ceo@mixue.vn', label: 'CEO Admin', icon: '👑', color: AppColors.ceoColor),
-    (role: UserRole.itAdmin, email: 'it@mixue.vn', label: 'IT Admin', icon: '💻', color: AppColors.itColor),
-    (role: UserRole.staff, email: 'staff1@mixue.vn', label: 'Staff', icon: '🛍️', color: AppColors.staffColor),
+    (role: UserRole.ceoAdmin, username: 'ceo', label: 'CEO Admin', icon: '👑', color: AppColors.ceoColor),
+    (role: UserRole.itAdmin, username: 'it', label: 'IT Admin', icon: '💻', color: AppColors.itColor),
+    (role: UserRole.staff, username: 'staff1', label: 'Staff', icon: '🛍️', color: AppColors.staffColor),
   ];
 
-  void _quickLogin(String email) {
-    _emailCtrl.text = email;
+  void _quickLogin(String username) {
+    _usernameCtrl.text = username;
     _pwCtrl.text = '123456';
     _doLogin();
   }
@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
     await Future.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
     final auth = context.read<AuthProvider>();
-    final ok = await auth.login(_emailCtrl.text, _pwCtrl.text);
+    final ok = await auth.login(_usernameCtrl.text, _pwCtrl.text);
     if (!ok) {
       setState(() {
         _loading = false;
@@ -135,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             icon: q.icon,
                             label: q.label,
                             color: q.color,
-                            onTap: () => _quickLogin(q.email),
+                            onTap: () => _quickLogin(q.username),
                           ),
                         ),
                       );
@@ -152,13 +152,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ]),
                   const SizedBox(height: 24),
 
-                  // Email
+                  // Username
                   TextFormField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: _usernameCtrl,
+                    keyboardType: TextInputType.text,
                     decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
+                      labelText: 'Tên đăng nhập',
+                      prefixIcon: Icon(Icons.person_outline),
                     ),
                   ),
                   const SizedBox(height: 16),

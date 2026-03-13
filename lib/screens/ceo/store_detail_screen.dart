@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/enums.dart';
 import '../../core/providers/store_provider.dart';
 import '../../core/utils/format_utils.dart';
+import '../../data/database_service.dart';
 import '../../models/order_model.dart';
 import '../../models/product_model.dart';
 import '../../models/store_model.dart';
@@ -13,7 +14,7 @@ import '../../widgets/revenue_chart.dart';
 import '../../widgets/stat_card.dart';
 
 class StoreDetailScreen extends StatefulWidget {
-  final String storeId;
+  final String storeId; // kept as String for router param
   const StoreDetailScreen({super.key, required this.storeId});
 
   @override
@@ -36,17 +37,16 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
 
   Future<_DetailData> _fetchData() async {
     final provider = context.read<StoreProvider>();
+    final storeIdInt = int.tryParse(widget.storeId) ?? 1;
     final store = await provider.getAllStores().then(
-        (list) => list.firstWhere((s) => s.id == widget.storeId, orElse: () => StoreModel(id: widget.storeId, name: '?', address: '', district: '', phone: '', isActive: true, openedAt: DateTime.now())));
-    final orders = await provider.getOrdersByPeriod(widget.storeId, _period);
-    final chartData = await provider.getChartData(widget.storeId, _period);
-    final topProducts = await provider.getTopProducts(widget.storeId, _period, limit: 5);
+        (list) => list.firstWhere((s) => s.id == storeIdInt, orElse: () => StoreModel(id: storeIdInt, code: '?', name: '?', createdAt: DateTime.now(), updatedAt: DateTime.now())));
+    final orders = await provider.getOrdersByPeriod(storeIdInt, _period);
+    final chartData = await provider.getChartData(storeIdInt, _period);
+    final topProducts = await provider.getTopProducts(storeIdInt, _period, limit: 5);
 
-    final revenue = orders.fold<double>(0, (s, o) => s + o.totalAmount);
-    final cashOrders = orders.where((o) => o.paymentMethod == PaymentMethod.cash);
-    final transferOrders = orders.where((o) => o.paymentMethod == PaymentMethod.transfer);
-    final cashRevenue = cashOrders.fold<double>(0, (s, o) => s + o.totalAmount);
-    final transferRevenue = transferOrders.fold<double>(0, (s, o) => s + o.totalAmount);
+    final revenue = orders.fold<double>(0, (s, o) => s + o.finalAmount);
+    final cashRevenue = orders.fold<double>(0, (s, o) => s + o.payments.where((p) => p.paymentMethod == 'cash').fold<double>(0, (ps, p) => ps + p.amount));
+    final transferRevenue = revenue - cashRevenue;
 
     return _DetailData(
       store: store,
@@ -90,8 +90,8 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(d.store.name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
-                            Text(d.store.address, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                            Text('${d.store.district} • ${d.store.phone}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                            Text(d.store.address ?? '', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                            Text('${d.store.address ?? ''} • ${d.store.phone ?? ''}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
                           ],
                         ),
                       ),
@@ -100,12 +100,12 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: d.store.isActive ? AppColors.successLight : AppColors.errorLight,
+                              color: d.store.status == 'active' ? AppColors.successLight : AppColors.errorLight,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              d.store.isActive ? 'Hoạt động' : 'Tạm đóng',
-                              style: TextStyle(color: d.store.isActive ? AppColors.success : AppColors.error, fontWeight: FontWeight.w600, fontSize: 12),
+                              d.store.status == 'active' ? 'Hoạt động' : 'Tạm đóng',
+                              style: TextStyle(color: d.store.status == 'active' ? AppColors.success : AppColors.error, fontWeight: FontWeight.w600, fontSize: 12),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -179,7 +179,7 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
 
 class _DetailData {
   final StoreModel store;
-  final List<OrderModel> orders;
+  final List<SalesOrderModel> orders;
   final List<ChartEntry> chartData;
   final List<ProductSaleModel> topProducts;
   final double revenue, cashRevenue, transferRevenue;

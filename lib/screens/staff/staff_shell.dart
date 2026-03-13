@@ -58,7 +58,7 @@ class _StaffShellState extends State<StaffShell> {
               children: [
                 const Text('Mixue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
                 Text(
-                  auth.currentUser?.storeName ?? 'Nhân viên',
+                  auth.currentUser?.storeId != null ? 'Cửa hàng #${auth.currentUser!.storeId}' : 'Nhân viên',
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],

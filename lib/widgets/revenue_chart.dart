@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../core/constants/app_colors.dart';
 import '../core/constants/enums.dart';
-import '../core/providers/store_provider.dart';
+import '../data/database_service.dart';
 import '../core/utils/format_utils.dart';
 
 class RevenueChart extends StatelessWidget {

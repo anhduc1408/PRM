@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/enums.dart';
 import '../../core/providers/store_provider.dart';
 import '../../core/utils/format_utils.dart';
+import '../../data/database_service.dart';
 import '../../models/order_model.dart';
 import '../../models/product_model.dart';
 import '../../models/store_model.dart';
@@ -40,18 +41,16 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
     final chartData = await provider.getChartData(null, _period);
     final topProducts = await provider.getTopProducts(null, _period, limit: 5);
 
-    final totalRevenue = orders.fold<double>(0, (s, o) => s + o.totalAmount);
-    final cashOrders = orders.where((o) => o.paymentMethod == PaymentMethod.cash);
-    final transferOrders = orders.where((o) => o.paymentMethod == PaymentMethod.transfer);
-    final cashRevenue = cashOrders.fold<double>(0, (s, o) => s + o.totalAmount);
-    final transferRevenue = transferOrders.fold<double>(0, (s, o) => s + o.totalAmount);
-    final activeStores = stores.where((s) => s.isActive).length;
+    final totalRevenue = orders.fold<double>(0, (s, o) => s + o.finalAmount);
+    final cashRevenue = orders.fold<double>(0, (s, o) => s + o.payments.where((p) => p.paymentMethod == 'cash').fold<double>(0, (ps, p) => ps + p.amount));
+    final transferRevenue = totalRevenue - cashRevenue;
+    final activeStores = stores.where((s) => s.status == 'active').length;
 
     // Per-store revenue
     final storeRevenues = <StoreModel, double>{};
     for (final store in stores) {
       final storeOrders = orders.where((o) => o.storeId == store.id);
-      storeRevenues[store] = storeOrders.fold(0, (s, o) => s + o.totalAmount);
+      storeRevenues[store] = storeOrders.fold(0, (s, o) => s + o.finalAmount);
     }
 
     return _DashboardData(
@@ -290,7 +289,7 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
                             Container(
                               width: 8, height: 8,
                               decoration: BoxDecoration(
-                                color: entry.key.isActive ? AppColors.success : AppColors.error,
+                                color: entry.key.status == 'active' ? AppColors.success : AppColors.error,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -310,7 +309,7 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
                       value: pct,
                       backgroundColor: AppColors.surfaceVariant,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        entry.key.isActive ? AppColors.primary : AppColors.textHint,
+                        entry.key.status == 'active' ? AppColors.primary : AppColors.textHint,
                       ),
                       minHeight: 6,
                     ),
@@ -329,7 +328,7 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
 
 class _DashboardData {
   final List<StoreModel> stores;
-  final List<OrderModel> orders;
+  final List<SalesOrderModel> orders;
   final List<ChartEntry> chartData;
   final List<ProductSaleModel> topProducts;
   final double totalRevenue;

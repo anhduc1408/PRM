@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/enums.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/store_provider.dart';
 import '../../core/utils/format_utils.dart';
@@ -16,17 +15,15 @@ class OrderEntryScreen extends StatefulWidget {
 }
 
 class _OrderEntryScreenState extends State<OrderEntryScreen> {
-  final Map<String, int> _cart = {};
-  PaymentMethod _paymentMethod = PaymentMethod.cash;
-  ShiftType _shift = ShiftType.morning;
+  final Map<int, int> _cart = {}; // productId -> qty
+  String _paymentMethod = 'cash';
   bool _orderSuccess = false;
   late Future<List<ProductModel>> _productsFuture;
 
   @override
   void initState() {
     super.initState();
-    final storeId = context.read<AuthProvider>().currentUser?.storeId ?? 'store1';
-    _productsFuture = DatabaseService.instance.getProductsForStore(storeId);
+    _productsFuture = DatabaseService.instance.getProductsActive();
   }
 
   @override
@@ -43,7 +40,7 @@ class _OrderEntryScreenState extends State<OrderEntryScreen> {
             product: products.firstWhere((p) => p.id == e.key),
             qty: e.value,
           )).toList();
-          final total = cartItems.fold<double>(0, (s, i) => s + i.product.price * i.qty);
+          final total = cartItems.fold<double>(0, (s, i) => s + i.product.sellingPrice * i.qty);
           return LayoutBuilder(builder: (context, constraints) {
             final isWide = constraints.maxWidth > 800;
             if (isWide) {
@@ -83,7 +80,7 @@ class _OrderEntryScreenState extends State<OrderEntryScreen> {
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.9),
           itemCount: products.length,
           itemBuilder: (context, i) {
-            final p = products[i]; final qty = _cart[p.id] ?? 0;
+           final p = products[i]; final qty = _cart[p.id] ?? 0;
             return _OrderProductCard(product: p, qty: qty, onAdd: () => setState(() => _cart[p.id] = qty + 1), onRemove: () => setState(() { if (qty > 0) _cart[p.id] = qty - 1; }));
           },
         )),
@@ -91,7 +88,7 @@ class _OrderEntryScreenState extends State<OrderEntryScreen> {
     });
   }
 
-  Widget _buildCartPanel(cartItems, double total, List<ProductModel> products) {
+  Widget _buildCartPanel(List<({ProductModel product, int qty})> cartItems, double total, List<ProductModel> products) {
     return Container(
       decoration: BoxDecoration(color: AppColors.surface, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12)]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -130,30 +127,11 @@ class _OrderEntryScreenState extends State<OrderEntryScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const Text('Thanh toán:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 8),
-            Row(children: PaymentMethod.values.map((m) {
-              final isSel = _paymentMethod == m;
-              return Expanded(child: GestureDetector(
-                onTap: () => setState(() => _paymentMethod = m),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(color: isSel ? AppColors.primary : AppColors.surfaceVariant, borderRadius: BorderRadius.circular(10), border: isSel ? null : Border.all(color: AppColors.border)),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(m == PaymentMethod.cash ? Icons.payments : Icons.account_balance, size: 16, color: isSel ? Colors.white : AppColors.textSecondary),
-                    const SizedBox(width: 4),
-                    Text(m.label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isSel ? Colors.white : AppColors.textSecondary)),
-                  ]),
-                ),
-              ));
-            }).toList()),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<ShiftType>(
-              value: _shift,
-              decoration: const InputDecoration(labelText: 'Ca làm việc', isDense: true),
-              items: ShiftType.values.map((s) => DropdownMenuItem(value: s, child: Text(s.shortLabel))).toList(),
-              onChanged: (v) => setState(() => _shift = v!),
-            ),
+            Row(children: [
+              _PayChip(label: 'Tiền mặt', icon: Icons.payments, selected: _paymentMethod == 'cash', onTap: () => setState(() => _paymentMethod = 'cash')),
+              const SizedBox(width: 8),
+              _PayChip(label: 'Chuyển khoản', icon: Icons.account_balance, selected: _paymentMethod == 'transfer', onTap: () => setState(() => _paymentMethod = 'transfer')),
+            ]),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(12),
@@ -180,17 +158,26 @@ class _OrderEntryScreenState extends State<OrderEntryScreen> {
 
   Future<void> _submitOrder(List<ProductModel> products) async {
     final auth = context.read<AuthProvider>();
-    final storeId = auth.currentUser?.storeId ?? 'store1';
+    final storeId = auth.currentUser?.storeId ?? 1;
+    final now = DateTime.now();
     final items = _cart.entries.where((e) => e.value > 0).map((e) {
       final p = products.firstWhere((pr) => pr.id == e.key);
-      return OrderItem(productId: p.id, productName: p.name, price: p.price, quantity: e.value);
+      return SalesOrderItemModel(
+        id: 0, salesOrderId: 0, productId: p.id,
+        quantity: e.value, unitPrice: p.sellingPrice,
+        lineTotal: p.sellingPrice * e.value, productName: p.name,
+      );
     }).toList();
-
-    final order = OrderModel(
-      id: 'ord_${DateTime.now().millisecondsSinceEpoch}',
-      createdAt: DateTime.now(), items: items,
-      paymentMethod: _paymentMethod, staffId: auth.currentUser?.id ?? '',
-      staffName: auth.currentUser?.name ?? '', storeId: storeId, shift: _shift,
+    final total = items.fold<double>(0, (s, i) => s + i.lineTotal);
+    final order = SalesOrderModel(
+      id: 0,
+      orderNo: 'ORD${now.millisecondsSinceEpoch}',
+      storeId: storeId,
+      staffUserId: auth.currentUser?.id ?? 0,
+      orderDate: now, totalAmount: total,
+      finalAmount: total, paymentStatus: 'paid',
+      createdAt: now, items: items,
+      payments: [PaymentModel(id: 0, salesOrderId: 0, paymentMethod: _paymentMethod, amount: total, paidAt: now)],
     );
     await context.read<StoreProvider>().addOrder(order);
     if (mounted) setState(() { _cart.clear(); _orderSuccess = true; });
@@ -214,6 +201,33 @@ class _OrderEntryScreenState extends State<OrderEntryScreen> {
   }
 }
 
+class _PayChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  const _PayChip({required this.label, required this.icon, required this.selected, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(child: GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary.withValues(alpha: 0.1) : AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: selected ? AppColors.primary : AppColors.border, width: selected ? 1.5 : 1),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 16, color: selected ? AppColors.primary : AppColors.textSecondary),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: selected ? AppColors.primary : AppColors.textSecondary)),
+        ]),
+      ),
+    ));
+  }
+}
 class _OrderProductCard extends StatelessWidget {
   final ProductModel product; final int qty; final VoidCallback onAdd, onRemove;
   const _OrderProductCard({required this.product, required this.qty, required this.onAdd, required this.onRemove});
@@ -233,7 +247,7 @@ class _OrderProductCard extends StatelessWidget {
         const SizedBox(height: 6),
         Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: Text(product.name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
         const SizedBox(height: 4),
-        Text(FormatUtils.formatCurrency(product.price), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 12)),
+        Text(FormatUtils.formatCurrency(product.sellingPrice), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 12)),
         const SizedBox(height: 6),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           InkWell(onTap: onRemove, borderRadius: BorderRadius.circular(6), child: Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(6)), child: const Icon(Icons.remove, size: 14))),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/enums.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/database_service.dart';
@@ -15,29 +14,32 @@ class SalesHistoryScreen extends StatefulWidget {
 
 class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   DateTime? _filterDate;
-  PaymentMethod? _filterPayment;
-  OrderModel? _selectedOrder;
-  late Future<List<OrderModel>> _ordersFuture;
+  String? _filterPayment; // 'cash' | 'transfer' | null
+  SalesOrderModel? _selectedOrder;
+  late Future<List<SalesOrderModel>> _ordersFuture;
 
   @override
   void initState() {
     super.initState();
-    _ordersFuture = _fetch(); // direct assign, no setState in initState
+    _ordersFuture = _fetch();
   }
+
   void _load() {
     final f = _fetch();
     if (mounted) setState(() => _ordersFuture = f);
   }
 
-  Future<List<OrderModel>> _fetch() async {
-    final storeId = context.read<AuthProvider>().currentUser?.storeId ?? 'store1';
+  Future<List<SalesOrderModel>> _fetch() async {
+    final storeId = context.read<AuthProvider>().currentUser?.storeId;
     DateTime? from, to;
     if (_filterDate != null) {
       from = DateTime(_filterDate!.year, _filterDate!.month, _filterDate!.day);
       to = from.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
     }
-    final orders = await DatabaseService.instance.getOrders(storeId: storeId, from: from, to: to);
-    if (_filterPayment != null) return orders.where((o) => o.paymentMethod == _filterPayment).toList();
+    final orders = await DatabaseService.instance.getSalesOrders(storeId: storeId, from: from, to: to);
+    if (_filterPayment != null) {
+      return orders.where((o) => o.payments.any((p) => p.paymentMethod == _filterPayment)).toList();
+    }
     return orders;
   }
 
@@ -54,7 +56,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
             Expanded(child: GestureDetector(
               onTap: () async {
                 final picked = await showDatePicker(context: context, initialDate: _filterDate ?? DateTime.now(),
-                  firstDate: DateTime.now().subtract(const Duration(days: 30)), lastDate: DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 90)), lastDate: DateTime.now(),
                   builder: (ctx, child) => Theme(data: ThemeData(colorSchemeSeed: AppColors.primary), child: child!));
                 setState(() => _filterDate = picked); _load();
               },
@@ -69,18 +71,19 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               ),
             )),
             const SizedBox(width: 10),
-            Expanded(child: DropdownButtonFormField<PaymentMethod?>(
+            Expanded(child: DropdownButtonFormField<String?>(
               value: _filterPayment,
               decoration: const InputDecoration(labelText: 'Thanh toán', isDense: true),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Tất cả')),
-                ...PaymentMethod.values.map((m) => DropdownMenuItem(value: m, child: Text(m.label))),
+              items: const [
+                DropdownMenuItem(value: null, child: Text('Tất cả')),
+                DropdownMenuItem(value: 'cash', child: Text('Tiền mặt')),
+                DropdownMenuItem(value: 'transfer', child: Text('Chuyển khoản')),
               ],
               onChanged: (v) { setState(() => _filterPayment = v); _load(); },
             )),
           ]),
           const SizedBox(height: 16),
-          Expanded(child: FutureBuilder<List<OrderModel>>(
+          Expanded(child: FutureBuilder<List<SalesOrderModel>>(
             future: _ordersFuture,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
@@ -94,6 +97,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 itemBuilder: (context, i) {
                   final o = orders[i];
                   final isSel = _selectedOrder?.id == o.id;
+                  final payMethod = o.payments.isNotEmpty ? o.payments.first.paymentMethod : 'cash';
                   return GestureDetector(
                     onTap: () => setState(() => _selectedOrder = isSel ? null : o),
                     child: AnimatedContainer(
@@ -112,17 +116,17 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: o.paymentMethod == PaymentMethod.cash ? AppColors.successLight : AppColors.warningLight,
+                                color: payMethod == 'cash' ? AppColors.successLight : AppColors.warningLight,
                                 borderRadius: BorderRadius.circular(8)),
-                              child: Icon(o.paymentMethod == PaymentMethod.cash ? Icons.payments : Icons.account_balance,
-                                size: 18, color: o.paymentMethod == PaymentMethod.cash ? AppColors.success : AppColors.warning),
+                              child: Icon(payMethod == 'cash' ? Icons.payments : Icons.account_balance,
+                                size: 18, color: payMethod == 'cash' ? AppColors.success : AppColors.warning),
                             ),
                             const SizedBox(width: 12),
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(FormatUtils.formatDateTime(o.createdAt), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                              Text('${o.items.length} sp • ${o.paymentMethod.label} • ${o.shift.shortLabel}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                              Text(o.orderNo, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                              Text('${FormatUtils.formatDateTime(o.orderDate)} • ${o.items.length} sp', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
                             ])),
-                            Text(FormatUtils.formatCurrency(o.totalAmount), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.primary)),
+                            Text(FormatUtils.formatCurrency(o.finalAmount), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.primary)),
                             const SizedBox(width: 8),
                             Icon(isSel ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: AppColors.textHint, size: 18),
                           ]),
@@ -136,14 +140,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                             ...o.items.map<Widget>((item) => Padding(
                               padding: const EdgeInsets.only(bottom: 4),
                               child: Row(children: [
-                                Expanded(child: Text('${item.productName} ×${item.quantity}', style: const TextStyle(fontSize: 12))),
-                                Text(FormatUtils.formatCurrency(item.subtotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                Expanded(child: Text('${item.productName ?? 'SP'} ×${item.quantity}', style: const TextStyle(fontSize: 12))),
+                                Text(FormatUtils.formatCurrency(item.lineTotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                               ]),
                             )),
                             const Divider(),
                             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                               const Text('Tổng cộng:', style: TextStyle(fontWeight: FontWeight.w700)),
-                              Text(FormatUtils.formatCurrency(o.totalAmount), style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary)),
+                              Text(FormatUtils.formatCurrency(o.finalAmount), style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary)),
                             ]),
                           ]),
                         ),

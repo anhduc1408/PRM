@@ -5,6 +5,7 @@ import '../../core/constants/enums.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/store_provider.dart';
 import '../../core/utils/format_utils.dart';
+import '../../data/database_service.dart';
 import '../../models/order_model.dart';
 import '../../widgets/period_filter_tabs.dart';
 import '../../widgets/revenue_chart.dart';
@@ -33,11 +34,11 @@ class _StaffRevenueScreenState extends State<StaffRevenueScreen> {
   Future<_RevenueData> _fetch() async {
     final auth = context.read<AuthProvider>();
     final provider = context.read<StoreProvider>();
-    final storeId = auth.currentUser?.storeId ?? 'store1';
+    final storeId = auth.currentUser?.storeId;
     final orders = await provider.getOrdersByPeriod(storeId, _period);
     final chartData = await provider.getChartData(storeId, _period);
-    final revenue = orders.fold<double>(0, (s, o) => s + o.totalAmount);
-    final cash = orders.where((o) => o.paymentMethod == PaymentMethod.cash).fold<double>(0, (s, o) => s + o.totalAmount);
+    final revenue = orders.fold<double>(0, (s, o) => s + o.finalAmount);
+    final cash = orders.fold<double>(0, (s, o) => s + o.payments.where((p) => p.paymentMethod == 'cash').fold<double>(0, (ps, p) => ps + p.amount));
     return _RevenueData(orders: orders, chartData: chartData, revenue: revenue, cash: cash, transfer: revenue - cash);
   }
 
@@ -91,7 +92,7 @@ class _StaffRevenueScreenState extends State<StaffRevenueScreen> {
 }
 
 class _RevenueData {
-  final List<OrderModel> orders;
+  final List<SalesOrderModel> orders;
   final List<ChartEntry> chartData;
   final double revenue, cash, transfer;
   _RevenueData({required this.orders, required this.chartData, required this.revenue, required this.cash, required this.transfer});

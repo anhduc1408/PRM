@@ -5,7 +5,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/enums.dart';
 import '../../core/providers/store_provider.dart';
 import '../../core/utils/format_utils.dart';
-import '../../models/order_model.dart';
 import '../../models/product_model.dart';
 import '../../models/store_model.dart';
 import '../../widgets/period_filter_tabs.dart';
@@ -39,7 +38,7 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
     final storeMetrics = <StoreModel, _StoreMetric>{};
     for (final store in stores) {
       final storeOrders = orders.where((o) => o.storeId == store.id).toList();
-      final revenue = storeOrders.fold<double>(0, (s, o) => s + o.totalAmount);
+      final revenue = storeOrders.fold<double>(0, (s, o) => s + o.finalAmount);
       final topProducts = await provider.getTopProducts(store.id, _period, limit: 3);
       storeMetrics[store] = _StoreMetric(
         revenue: revenue,
@@ -144,20 +143,20 @@ class _StoreCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: store.isActive ? AppColors.successLight : AppColors.errorLight,
+                    color: store.status == 'active' ? AppColors.successLight : AppColors.errorLight,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    store.isActive ? 'Hoạt động' : 'Tạm đóng',
+                    store.status == 'active' ? 'Hoạt động' : 'Tạm đóng',
                     style: TextStyle(
-                      color: store.isActive ? AppColors.success : AppColors.error,
+                      color: store.status == 'active' ? AppColors.success : AppColors.error,
                       fontSize: 11, fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ],
             ),
-            Text(store.district, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+            Text(store.address ?? store.code, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             const SizedBox(height: 16),
             Row(
               children: [

@@ -44,7 +44,7 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
     if (_filterRole != null) res = res.where((u) => u.role == _filterRole).toList();
     if (_searchCtrl.text.isNotEmpty) {
       final q = _searchCtrl.text.toLowerCase();
-      res = res.where((u) => u.name.toLowerCase().contains(q) || u.email.toLowerCase().contains(q)).toList();
+      res = res.where((u) => u.fullName.toLowerCase().contains(q) || (u.email ?? '').toLowerCase().contains(q)).toList();
     }
     return res;
   }
@@ -55,8 +55,8 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
     final emailCtrl = TextEditingController();
     final passCtrl  = TextEditingController();
     final phoneCtrl = TextEditingController();
-    var selectedRole    = UserRole.staff;
-    String? selectedStoreId = stores.isNotEmpty ? stores.first.id : null;
+    var selectedRole = UserRole.staff;
+    int? selectedStoreId = stores.isNotEmpty ? stores.first.id : null;
 
     showDialog(
       context: context,
@@ -101,7 +101,7 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                       const SizedBox(height: 12),
                       _buildTextField(nameCtrl,  'Họ và tên *',  Icons.person_outline),
                       const SizedBox(height: 10),
-                      _buildTextField(emailCtrl, 'Email *',       Icons.email_outlined),
+                      _buildTextField(emailCtrl, 'Email', Icons.email_outlined),
                       const SizedBox(height: 10),
                       _buildTextField(phoneCtrl, 'Số điện thoại', Icons.phone_outlined),
                       const SizedBox(height: 10),
@@ -126,7 +126,7 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                         const SizedBox(height: 16),
                         _sectionLabel('Cửa hàng làm việc'),
                         const SizedBox(height: 10),
-                        DropdownButtonFormField<String>(
+                        DropdownButtonFormField<int>(
                           value: selectedStoreId,
                           decoration: _inputDeco('Chọn cửa hàng', Icons.store_outlined),
                           items: stores.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name, style: const TextStyle(fontSize: 13)))).toList(),
@@ -151,23 +151,28 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                     const SizedBox(width: 12),
                     Expanded(child: ElevatedButton(
                       onPressed: () async {
-                        if (nameCtrl.text.isEmpty || emailCtrl.text.isEmpty) return;
+                        if (nameCtrl.text.isEmpty) return;
                         final storeNeeded = selectedRole == UserRole.staff || selectedRole == UserRole.storeManager || selectedRole == UserRole.inventoryChecker;
-                        final storeId   = storeNeeded ? selectedStoreId : null;
-                        final storeName = storeId != null ? stores.firstWhere((s) => s.id == storeId).name : null;
+                        final storeId = storeNeeded ? selectedStoreId : null;
+                        final now = DateTime.now();
                         final newUser = UserModel(
-                          id: 'u_${DateTime.now().millisecondsSinceEpoch}',
-                          name: nameCtrl.text.trim(), email: emailCtrl.text.trim(),
-                          password: passCtrl.text.isEmpty ? '123456' : passCtrl.text,
+                          id: 0,
+                          username: emailCtrl.text.trim().isNotEmpty
+                            ? emailCtrl.text.trim().split('@').first
+                            : nameCtrl.text.trim().replaceAll(' ','').toLowerCase(),
+                          passwordHash: passCtrl.text.isEmpty ? '123456' : passCtrl.text,
+                          fullName: nameCtrl.text.trim(),
+                          email: emailCtrl.text.trim().isNotEmpty ? emailCtrl.text.trim() : null,
                           phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text.trim(),
-                          role: selectedRole, storeId: storeId, storeName: storeName,
+                          role: selectedRole, storeId: storeId,
+                          createdAt: now, updatedAt: now,
                         );
                         await DatabaseService.instance.insertUser(newUser);
                         if (ctx.mounted) Navigator.pop(ctx);
                         _reload();
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('Đã thêm ${newUser.name}'),
+                            content: Text('Đã thêm ${newUser.fullName}'),
                             backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ));
@@ -191,11 +196,11 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
 
   // ─── EDIT DIALOG ────────────────────────────────────────────────────────────
   void _showEditDialog(UserModel user, List<StoreModel> stores) {
-    final nameCtrl  = TextEditingController(text: user.name);
-    final emailCtrl = TextEditingController(text: user.email);
+    final nameCtrl  = TextEditingController(text: user.fullName);
+    final emailCtrl = TextEditingController(text: user.email ?? '');
     final phoneCtrl = TextEditingController(text: user.phone ?? '');
     var selectedRole    = user.role;
-    String? selectedStoreId = user.storeId ?? (stores.isNotEmpty ? stores.first.id : null);
+    int? selectedStoreId = user.storeId ?? (stores.isNotEmpty ? stores.first.id : null);
 
     showDialog(
       context: context,
@@ -220,13 +225,13 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                     CircleAvatar(
                       radius: 22,
                       backgroundColor: Colors.white.withValues(alpha: 0.25),
-                      child: Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                      child: Text(user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : '?',
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
                     ),
                     const SizedBox(width: 14),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       const Text('Chỉnh sửa nhân sự', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
-                      Text(user.email, style: const TextStyle(color: Colors.white70, fontSize: 12), overflow: TextOverflow.ellipsis),
+                      Text(user.email ?? user.username, style: const TextStyle(color: Colors.white70, fontSize: 12), overflow: TextOverflow.ellipsis),
                     ])),
                     IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close, color: Colors.white70)),
                   ]),
@@ -275,7 +280,7 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                         const SizedBox(height: 16),
                         _sectionLabel('Cửa hàng làm việc'),
                         const SizedBox(height: 10),
-                        DropdownButtonFormField<String>(
+                        DropdownButtonFormField<int>(
                           value: selectedStoreId,
                           decoration: _inputDeco('Chọn cửa hàng', Icons.store_outlined),
                           items: stores.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name, style: const TextStyle(fontSize: 13)))).toList(),
@@ -297,7 +302,7 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                           builder: (c) => AlertDialog(
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             title: const Text('Reset mật khẩu?'),
-                            content: Text('Mật khẩu của ${user.name} sẽ được đặt lại về 123456.'),
+                            content: Text('Mật khẩu của ${user.fullName} sẽ được đặt lại về 123456.'),
                             actions: [
                               TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Hủy')),
                               ElevatedButton(
@@ -312,7 +317,7 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                           await DatabaseService.instance.resetPassword(user.id);
                           if (ctx.mounted) Navigator.pop(ctx);
                           if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('Đã reset mật khẩu ${user.name} về 123456'),
+                            content: Text('Đã reset mật khẩu ${user.fullName} về 123456'),
                             backgroundColor: AppColors.warning, behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ));
@@ -334,23 +339,22 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                     const SizedBox(width: 8),
                     Expanded(child: ElevatedButton(
                       onPressed: () async {
-                        if (nameCtrl.text.isEmpty || emailCtrl.text.isEmpty) return;
                         final storeNeeded = selectedRole == UserRole.staff || selectedRole == UserRole.storeManager || selectedRole == UserRole.inventoryChecker;
-                        final storeId   = storeNeeded ? selectedStoreId : null;
-                        final storeName = storeId != null ? stores.firstWhere((s) => s.id == storeId).name : null;
-                        final updated = UserModel(
-                          id: user.id, password: user.password,
-                          name: nameCtrl.text.trim(), email: emailCtrl.text.trim(),
+                        final storeId = storeNeeded ? selectedStoreId : null;
+                        final updated = user.copyWith(
+                          fullName: nameCtrl.text.trim(),
+                          email: emailCtrl.text.trim().isNotEmpty ? emailCtrl.text.trim() : null,
                           phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text.trim(),
-                          role: selectedRole, storeId: storeId, storeName: storeName,
+                          role: selectedRole, storeId: storeId,
+                          updatedAt: DateTime.now(),
                         );
                         await DatabaseService.instance.updateUser(updated);
-                        await context.read<AuthProvider>().updateUserRole(user.id, selectedRole, storeId, storeName);
+                        await context.read<AuthProvider>().updateUserRole(user.id, selectedRole, storeId);
                         if (ctx.mounted) Navigator.pop(ctx);
                         _reload();
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('Đã cập nhật ${updated.name}'),
+                            content: Text('Đã cập nhật ${updated.fullName}'),
                             backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ));
@@ -487,15 +491,18 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                               child: Row(children: [
                                 CircleAvatar(
                                   backgroundColor: c.withValues(alpha: 0.15), radius: 22,
-                                  child: Text(u.name.isNotEmpty ? u.name[0].toUpperCase() : '?',
+                                  child: Text(u.fullName.isNotEmpty ? u.fullName[0].toUpperCase() : '?',
                                     style: TextStyle(color: c, fontWeight: FontWeight.w800, fontSize: 16)),
                                 ),
                                 const SizedBox(width: 14),
                                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text(u.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                                  Text(u.email, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                                  Text(u.fullName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                                  if (u.email != null) Text(u.email!, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                                   if (u.phone != null) Text('📞 ${u.phone}', style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
-                                  if (u.storeName != null) Text('📍 ${u.storeName}', style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
+                                  Row(children: [
+                                    Text('📌 ${u.username}', style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
+                                    if (u.storeId != null) Text(' • Store #${u.storeId}', style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
+                                  ]),
                                 ])),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

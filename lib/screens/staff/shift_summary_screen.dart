@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/enums.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/database_service.dart';
@@ -14,26 +13,26 @@ class ShiftSummaryScreen extends StatefulWidget {
 }
 
 class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
-  ShiftType _shift = ShiftType.morning;
+  // Keep using PeriodFilter for the date selector
   DateTime _date = DateTime.now();
-  late Future<List<OrderModel>> _ordersFuture;
+  late Future<List<SalesOrderModel>> _ordersFuture;
 
   @override
   void initState() {
     super.initState();
-    _ordersFuture = _fetch(); // direct assign, no setState in initState
+    _ordersFuture = _fetch();
   }
+
   void _load() {
     final f = _fetch();
     if (mounted) setState(() => _ordersFuture = f);
   }
 
-  Future<List<OrderModel>> _fetch() async {
-    final storeId = context.read<AuthProvider>().currentUser?.storeId ?? 'store1';
+  Future<List<SalesOrderModel>> _fetch() async {
+    final storeId = context.read<AuthProvider>().currentUser?.storeId;
     final from = DateTime(_date.year, _date.month, _date.day);
     final to = from.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
-    final all = await DatabaseService.instance.getOrders(storeId: storeId, from: from, to: to);
-    return all.where((o) => o.shift == _shift).toList();
+    return DatabaseService.instance.getSalesOrders(storeId: storeId, from: from, to: to);
   }
 
   @override
@@ -45,7 +44,6 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Tổng kết ca làm việc', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 20),
-          // Date + shift picker row
           Row(children: [
             Expanded(child: GestureDetector(
               onTap: () async {
@@ -65,32 +63,19 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
               ),
             )),
             const SizedBox(width: 12),
-            Expanded(child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-              child: Row(children: ShiftType.values.map((s) {
-                final isSel = _shift == s;
-                return Expanded(child: GestureDetector(
-                  onTap: () { setState(() => _shift = s); _load(); },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.all(4), padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(color: isSel ? AppColors.primary : Colors.transparent, borderRadius: BorderRadius.circular(8)),
-                    alignment: Alignment.center,
-                    child: Text(s.shortLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isSel ? Colors.white : AppColors.textSecondary)),
-                  ),
-                ));
-              }).toList()),
-            )),
+            IconButton(
+              icon: const Icon(Icons.refresh, color: AppColors.primary),
+              onPressed: _load, tooltip: 'Làm mới',
+            ),
           ]),
           const SizedBox(height: 20),
-          FutureBuilder<List<OrderModel>>(
+          FutureBuilder<List<SalesOrderModel>>(
             future: _ordersFuture,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
               final orders = snap.data ?? [];
-              final revenue = orders.fold<double>(0, (s, o) => s + o.totalAmount);
-              final cash = orders.where((o) => o.paymentMethod == PaymentMethod.cash).fold<double>(0, (s, o) => s + o.totalAmount);
+              final revenue = orders.fold<double>(0, (s, o) => s + o.finalAmount);
+              final cash = orders.fold<double>(0, (s, o) => s + o.payments.where((p) => p.paymentMethod == 'cash').fold<double>(0, (ps, p) => ps + p.amount));
               final transfer = revenue - cash;
               return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Container(
@@ -101,7 +86,7 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
                       const Text('📋', style: TextStyle(fontSize: 18)), const SizedBox(width: 8),
-                      Text('${_shift.shortLabel} — ${FormatUtils.formatDate(_date)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                      Text('Ngày ${FormatUtils.formatDate(_date)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
                     ]),
                     const SizedBox(height: 16),
                     Row(children: [
@@ -114,7 +99,7 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(12)),
                       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                        const Text('TỔNG CỘNG CA', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                        const Text('TỔNG CỘNG', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
                         Text(FormatUtils.formatCurrency(revenue), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
                       ]),
                     ),
@@ -128,30 +113,33 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
                   decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12)]),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${orders.length} đơn trong ca', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                    Text('${orders.length} đơn trong ngày', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 12),
                     if (orders.isEmpty)
-                      const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Chưa có đơn hàng trong ca này', style: TextStyle(color: AppColors.textHint))))
-                    else ...orders.take(20).map<Widget>((o) => Container(
-                      margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(10)),
-                      child: Row(children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: o.paymentMethod == PaymentMethod.cash ? AppColors.successLight : AppColors.warningLight,
-                            borderRadius: BorderRadius.circular(8)),
-                          child: Icon(o.paymentMethod == PaymentMethod.cash ? Icons.payments : Icons.account_balance,
-                            size: 16, color: o.paymentMethod == PaymentMethod.cash ? AppColors.success : AppColors.warning),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(FormatUtils.formatTime(o.createdAt), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                          Text('${o.items.length} sản phẩm', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                        ])),
-                        Text(FormatUtils.formatCurrency(o.totalAmount), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary)),
-                      ]),
-                    )),
+                      const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Chưa có đơn hàng ngày này', style: TextStyle(color: AppColors.textHint))))
+                    else ...orders.take(20).map<Widget>((o) {
+                      final payMethod = o.payments.isNotEmpty ? o.payments.first.paymentMethod : 'cash';
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(10)),
+                        child: Row(children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: payMethod == 'cash' ? AppColors.successLight : AppColors.warningLight,
+                              borderRadius: BorderRadius.circular(8)),
+                            child: Icon(payMethod == 'cash' ? Icons.payments : Icons.account_balance,
+                              size: 16, color: payMethod == 'cash' ? AppColors.success : AppColors.warning),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(o.orderNo, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text('${o.items.length} sản phẩm', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                          ])),
+                          Text(FormatUtils.formatCurrency(o.finalAmount), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary)),
+                        ]),
+                      );
+                    }),
                   ]),
                 ),
               ]);

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../models/product_model.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/utils/format_utils.dart';
+import '../models/product_model.dart';
+import '../core/constants/app_colors.dart';
+import '../core/utils/format_utils.dart';
 
 class ProductRankList extends StatelessWidget {
   final List<ProductSaleModel> products;
