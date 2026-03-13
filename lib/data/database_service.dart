@@ -288,6 +288,11 @@ class DatabaseService {
     await db.insert('users', {'username': 'staff2', 'password_hash': '123456', 'full_name': 'Trần Thị Bình', 'email': 'staff2@mixue.vn', 'role': 'staff', 'store_id': 2, 'phone': '0912345678', 'status': 'active', 'created_at': now, 'updated_at': now});
     await db.insert('users', {'username': 'manager1', 'password_hash': '123456', 'full_name': 'Lê Quản Lý', 'email': 'manager1@mixue.vn', 'role': 'storeManager', 'store_id': 1, 'phone': '0923456789', 'status': 'active', 'created_at': now, 'updated_at': now});
     await db.insert('users', {'username': 'checker1', 'password_hash': '123456', 'full_name': 'Phạm Kiểm Kho', 'email': 'checker1@mixue.vn', 'role': 'inventoryChecker', 'store_id': 1, 'phone': '0934567890', 'status': 'active', 'created_at': now, 'updated_at': now});
+    
+    // Add more mock staff for store 1
+    await db.insert('users', {'username': 'staff3', 'password_hash': '123456', 'full_name': 'Hoàng Văn Cường', 'email': 'staff3@mixue.vn', 'role': 'staff', 'store_id': 1, 'phone': '0945678901', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'staff4', 'password_hash': '123456', 'full_name': 'Đinh Thị Dung', 'email': 'staff4@mixue.vn', 'role': 'staff', 'store_id': 1, 'phone': '0956789012', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'staff5', 'password_hash': '123456', 'full_name': 'Cao Văn Em', 'email': 'staff5@mixue.vn', 'role': 'staff', 'store_id': 1, 'phone': '0967890123', 'status': 'active', 'created_at': now, 'updated_at': now});
 
     // Warehouses
     await db.insert('warehouses', {'code': 'WH001', 'name': 'Kho Tổng', 'type': 'main', 'store_id': 1, 'address': '1 Trung Tâm, Q.1', 'manager_user_id': 5, 'status': 'active', 'created_at': now, 'updated_at': now});
@@ -323,7 +328,7 @@ class DatabaseService {
       for (int prod = 1; prod <= 10; prod++) {
         await db.insert('warehouse_inventory', {
           'warehouse_id': wh, 'product_id': prod,
-          'quantity': rng.nextInt(200) + 50, 'min_quantity': 20, 'updated_at': now,
+          'quantity': rng.nextInt(500) + 150, 'min_quantity': 50, 'updated_at': now,
         });
       }
     }
@@ -333,37 +338,52 @@ class DatabaseService {
     await db.insert('work_shifts', {'name': 'Ca Chiều', 'start_time': '14:00', 'end_time': '22:00', 'status': 'active', 'created_at': now, 'updated_at': now});
     await db.insert('work_shifts', {'name': 'Ca Tối', 'start_time': '22:00', 'end_time': '06:00', 'status': 'active', 'created_at': now, 'updated_at': now});
 
-    // Shift Assignments (last 14 days)
-    for (int day = -7; day <= 7; day++) {
+    // Shift Assignments (last 30 days to next 14 days)
+    for (int day = -30; day <= 14; day++) {
       final date = DateTime.now().add(Duration(days: day));
       final dateStr = '${date.year}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')}';
-      for (final userId in [3, 4, 5]) {
+      for (final userId in [3, 4, 5, 7, 8, 9]) {
+        // Randomly skip some days so staff don't work every day
+        if (rng.nextDouble() < 0.2) continue;
+        
         await db.insert('shift_assignments', {
           'shift_id': rng.nextInt(3) + 1, 'user_id': userId,
           'work_date': dateStr, 'status': day < 0 ? 'completed' : 'scheduled',
-          'assigned_by': 2, 'created_at': now,
+          'assigned_by': 5, 'created_at': now,
         });
       }
     }
 
-    // Sales Orders (last 30 days)
+    // Sales Orders (last 45 days)
     int orderCounter = 1;
-    for (int day = -29; day <= 0; day++) {
+    for (int day = -45; day <= 0; day++) {
       final date = DateTime.now().add(Duration(days: day));
-      final ordersPerDay = rng.nextInt(8) + 3;
+      final ordersPerDay = rng.nextInt(20) + 10; // 10 to 30 orders per day
+      
       for (int i = 0; i < ordersPerDay; i++) {
-        final storeId = rng.nextInt(3) + 1;
-        final prodCount = rng.nextInt(3) + 1;
+        final storeId = rng.nextInt(2) + 1; // 1 or 2
+        final prodCount = rng.nextInt(4) + 1; // 1 to 4 products per order
+        
+        // Pick a staff user for the store
+        final staffUserId = storeId == 1 
+            ? [3, 7, 8, 9][rng.nextInt(4)] // Store 1 staff
+            : 4; // Store 2 staff
+
         double total = 0;
         final orderNo = 'ORD${orderCounter.toString().padLeft(6,'0')}';
+        
+        // Random hour for the order within the day
+        final orderDate = DateTime(date.year, date.month, date.day, rng.nextInt(15) + 7, rng.nextInt(60));
+        
         final orderId = await db.insert('sales_orders', {
-          'order_no': orderNo, 'store_id': storeId, 'staff_user_id': storeId == 1 ? 3 : 4,
-          'order_date': date.toIso8601String(), 'total_amount': 0,
-          'discount_amount': 0, 'final_amount': 0, 'payment_status': 'paid', 'created_at': date.toIso8601String(),
+          'order_no': orderNo, 'store_id': storeId, 'staff_user_id': staffUserId,
+          'order_date': orderDate.toIso8601String(), 'total_amount': 0,
+          'discount_amount': 0, 'final_amount': 0, 'payment_status': 'paid', 'created_at': orderDate.toIso8601String(),
         });
+        
         for (int j = 0; j < prodCount; j++) {
           final prodId = rng.nextInt(10) + 1;
-          final qty = rng.nextInt(3) + 1;
+          final qty = rng.nextInt(4) + 1; // 1 to 4 quantity
           final price = products[prodId - 1]['selling_price'] as double;
           final lineTotal = price * qty;
           total += lineTotal;
@@ -372,10 +392,11 @@ class DatabaseService {
             'quantity': qty, 'unit_price': price, 'line_total': lineTotal,
           });
         }
+        
         await db.update('sales_orders', {'total_amount': total, 'final_amount': total}, where: 'id = ?', whereArgs: [orderId]);
-        final method = rng.nextBool() ? 'cash' : 'transfer';
+        final method = rng.nextDouble() < 0.6 ? 'cash' : 'transfer'; // 60% cash, 40% transfer
         await db.insert('payments', {
-          'sales_order_id': orderId, 'payment_method': method, 'amount': total, 'paid_at': date.toIso8601String(),
+          'sales_order_id': orderId, 'payment_method': method, 'amount': total, 'paid_at': orderDate.toIso8601String(),
         });
         orderCounter++;
       }

@@ -24,6 +24,13 @@ import '../../screens/staff/shift_summary_screen.dart';
 import '../../screens/staff/sales_history_screen.dart';
 import '../../screens/staff/work_schedule_screen.dart';
 
+// Manager
+import '../../screens/manager/manager_shell.dart';
+import '../../screens/manager/manager_staff_screen.dart';
+import '../../screens/manager/manager_revenue_screen.dart';
+import '../../screens/manager/manager_inventory_screen.dart';
+import '../../screens/manager/manager_orders_screen.dart';
+
 // Warehouse
 import '../../screens/warehouse/warehouse_shell.dart';
 import '../../screens/warehouse/warehouse_store_list_screen.dart';
@@ -55,6 +62,7 @@ class AppRouter {
             case UserRole.inventoryChecker:
               return '/warehouse/products';
             case UserRole.storeManager:
+              return '/manager/staff';
             case UserRole.staff:
               return '/staff/products';
           }
@@ -126,6 +134,29 @@ class AppRouter {
             GoRoute(
               path: '/staff/schedule',
               builder: (context, state) => const WorkScheduleScreen(),
+            ),
+          ],
+        ),
+
+        // ── Manager Routes ─────────────────────────────────────────────────
+        ShellRoute(
+          builder: (context, state, child) => ManagerShell(child: child),
+          routes: [
+            GoRoute(
+              path: '/manager/staff',
+              builder: (context, state) => const ManagerStaffScreen(),
+            ),
+            GoRoute(
+              path: '/manager/revenue',
+              builder: (context, state) => const ManagerRevenueScreen(),
+            ),
+            GoRoute(
+              path: '/manager/inventory',
+              builder: (context, state) => const ManagerInventoryScreen(),
+            ),
+            GoRoute(
+              path: '/manager/orders',
+              builder: (context, state) => const ManagerOrdersScreen(),
             ),
           ],
         ),
