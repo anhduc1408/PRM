@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../widgets/notification_bell.dart';
 
 class CeoShell extends StatelessWidget {
   final Widget child;
@@ -34,6 +35,7 @@ class CeoShell extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          const NotificationBell(),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {

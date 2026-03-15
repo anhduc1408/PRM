@@ -21,6 +21,7 @@ export 'package:mixue_manager/core/theme/app_theme.dart';
 // Providers
 export 'package:mixue_manager/core/providers/auth_provider.dart';
 export 'package:mixue_manager/core/providers/store_provider.dart';
+export 'package:mixue_manager/core/providers/notification_provider.dart';
 
 // Data
 export 'package:mixue_manager/data/database_service.dart';

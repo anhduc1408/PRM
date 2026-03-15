@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/enums.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/warehouse_provider.dart';
+import '../../widgets/notification_bell.dart';
 
 class WarehouseShell extends StatefulWidget {
   final Widget child;
@@ -92,6 +93,7 @@ class _WarehouseShellState extends State<WarehouseShell> {
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
+          const NotificationBell(),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.white),
             tooltip: 'Đăng xuất',

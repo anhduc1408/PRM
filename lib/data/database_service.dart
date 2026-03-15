@@ -445,6 +445,28 @@ class DatabaseService {
         where: 'id = ?', whereArgs: [userId]);
   }
 
+  /// Đảm bảo tất cả tài khoản demo tồn tại trong DB.
+  /// Dùng INSERT OR IGNORE (UNIQUE trên username) → an toàn gọi mỗi lần khởi động.
+  Future<void> ensureDemoUsers() async {
+    final db  = await database;
+    final now = DateTime.now().toIso8601String();
+
+    final storeRows = await db.query('stores', columns: ['id'], limit: 1);
+    final sId = storeRows.isNotEmpty ? storeRows.first['id'] as int : 1;
+
+    final demos = [
+      {'username': 'ceo1',     'password_hash': '123456', 'full_name': 'CEO Admin',      'email': 'ceo1@mixue.vn',     'role': 'ceoAdmin',         'store_id': null, 'status': 'active', 'created_at': now, 'updated_at': now},
+      {'username': 'it1',      'password_hash': '123456', 'full_name': 'IT Admin',        'email': 'it1@mixue.vn',      'role': 'itAdmin',          'store_id': null, 'status': 'active', 'created_at': now, 'updated_at': now},
+      {'username': 'manager1', 'password_hash': '123456', 'full_name': 'Le Quan Ly',     'email': 'manager1@mixue.vn', 'role': 'storeManager',     'store_id': sId,  'status': 'active', 'created_at': now, 'updated_at': now},
+      {'username': 'checker1', 'password_hash': '123456', 'full_name': 'Pham Kiem Kho',  'email': 'checker1@mixue.vn', 'role': 'inventoryChecker', 'store_id': sId,  'status': 'active', 'created_at': now, 'updated_at': now},
+      {'username': 'staff1',   'password_hash': '123456', 'full_name': 'Nguyen Van An',  'email': 'staff1@mixue.vn',   'role': 'staff',            'store_id': sId,  'status': 'active', 'created_at': now, 'updated_at': now},
+    ];
+
+    for (final u in demos) {
+      await db.insert('users', u, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+  }
+
   // ─── STORE QUERIES ────────────────────────────────────────────────────────
   Future<List<StoreModel>> getAllStores() async {
     final db = await database;
@@ -773,7 +795,7 @@ class DatabaseService {
     final rows = await db.rawQuery('''
       SELECT n.*, u.full_name as target_user_name
       FROM notifications n LEFT JOIN users u ON u.id = n.target_user_id
-      $where ORDER BY n.created_at DESC LIMIT 50
+      $where ORDER BY n.created_at DESC LIMIT 100
     ''');
     return rows.map(_mapNotification).toList();
   }
@@ -781,6 +803,121 @@ class DatabaseService {
   Future<void> markNotificationRead(int id) async {
     final db = await database;
     await db.update('notifications', {'is_read': 1}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Đánh dấu tất cả thông báo của [userId] là đã đọc.
+  Future<void> markAllNotificationsRead(int userId) async {
+    final db = await database;
+    await db.update(
+      'notifications',
+      {'is_read': 1},
+      where: 'target_user_id = ? AND is_read = 0',
+      whereArgs: [userId],
+    );
+  }
+
+  /// Đếm số thông báo chưa đọc của [userId].
+  Future<int> getUnreadNotificationCount(int userId) async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM notifications WHERE target_user_id = ? AND is_read = 0',
+      [userId],
+    );
+    return (rows.first['cnt'] as int?) ?? 0;
+  }
+
+  /// Chèn một notification mới, trả về id vừa tạo.
+  Future<int> insertNotification(NotificationModel n) async {
+    final db = await database;
+    return db.insert('notifications', {
+      'type': n.type,
+      'title': n.title,
+      'content': n.content,
+      'target_user_id': n.targetUserId,
+      'store_id': n.storeId,
+      'product_id': n.productId,
+      'is_read': 0,
+      'created_at': n.createdAt.toIso8601String(),
+    });
+  }
+
+  /// Kiểm tra hàng sắp hết và tạo notification nếu chưa có (anti-spam).
+  ///
+  /// Anti-spam: bỏ qua nếu đã tồn tại notification [type='low_stock',
+  /// is_read=0] cho cùng product_id + store_id.
+  Future<int> checkAndInsertLowStockNotifications({int? storeId}) async {
+    final db     = await database;
+    final now    = DateTime.now();
+    int created  = 0;
+
+    // Lấy danh sách hàng sắp hết (quantity <= min_quantity)
+    final lowItems = await getLowStockItems(storeId: storeId);
+    if (lowItems.isEmpty) return 0;
+
+    for (final item in lowItems) {
+      // Lấy store_id từ warehouse
+      final whRows = await db.query(
+        'warehouses', columns: ['store_id'], where: 'id = ?', whereArgs: [item.warehouseId],
+      );
+      if (whRows.isEmpty) continue;
+      final sId = whRows.first['store_id'] as int;
+
+      // Anti-spam — đã có notification chưa đọc cho cùng product+store chưa?
+      final exists = await db.rawQuery('''
+        SELECT 1 FROM notifications
+        WHERE type = 'low_stock'
+          AND product_id = ?
+          AND store_id   = ?
+          AND is_read    = 0
+        LIMIT 1
+      ''', [item.productId, sId]);
+      if (exists.isNotEmpty) continue;
+
+      // Lấy tên cửa hàng
+      final stRows = await db.query(
+        'stores', columns: ['name'], where: 'id = ?', whereArgs: [sId],
+      );
+      final storeName = stRows.isNotEmpty ? stRows.first['name'] as String : 'Cửa hàng #$sId';
+      final productName = item.productName ?? 'Sản phẩm #${item.productId}';
+
+      final title   = 'Sắp hết hàng: $productName';
+      final content = '$productName tại $storeName sắp hết hàng. Số lượng còn lại: ${item.quantity}';
+
+      // Người nhận 1: storeManager của store đó
+      final managerRows = await db.query(
+        'users',
+        columns: ['id'],
+        where: "role = 'storeManager' AND store_id = ? AND status = 'active'",
+        whereArgs: [sId],
+      );
+
+      // Người nhận 2: tất cả inventoryChecker
+      final checkerRows = await db.query(
+        'users',
+        columns: ['id'],
+        where: "role = 'inventoryChecker' AND status = 'active'",
+      );
+
+      final recipients = [
+        ...managerRows.map((r) => r['id'] as int),
+        ...checkerRows.map((r) => r['id'] as int),
+      ].toSet(); // loại trùng nếu có
+
+      for (final uid in recipients) {
+        await db.insert('notifications', {
+          'type':           'low_stock',
+          'title':          title,
+          'content':        content,
+          'target_user_id': uid,
+          'store_id':       sId,
+          'product_id':     item.productId,
+          'is_read':        0,
+          'created_at':     now.toIso8601String(),
+        });
+        created++;
+      }
+    }
+    return created;
   }
 
   // ─── INVENTORY LOG QUERIES ────────────────────────────────────────────────
