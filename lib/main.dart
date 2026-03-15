@@ -9,6 +9,7 @@ import 'core/theme/app_theme.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/providers/store_provider.dart';
 import 'core/providers/warehouse_provider.dart';
+import 'core/providers/notification_provider.dart';
 import 'core/router/app_router.dart';
 import 'data/database_service.dart';
 
@@ -29,12 +30,16 @@ void main() async {
   // Pre-warm the database (creates tables + seeds data on first run)
   await DatabaseService.instance.database;
 
+  // Đảm bảo tài khoản demo cho tất cả roles tồn tại (safe to call every launch)
+  await DatabaseService.instance.ensureDemoUsers();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => StoreProvider()),
         ChangeNotifierProvider(create: (_) => WarehouseProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: const MixueApp(),
     ),

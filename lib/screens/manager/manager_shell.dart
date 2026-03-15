@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../widgets/notification_bell.dart';
 
 class ManagerShell extends StatefulWidget {
   final Widget child;
@@ -101,6 +102,7 @@ class _ManagerShellState extends State<ManagerShell> {
           ],
         ),
         actions: [
+          const NotificationBell(),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {

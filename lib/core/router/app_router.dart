@@ -6,6 +6,7 @@ import '../constants/enums.dart';
 
 // Auth
 import '../../screens/auth/login_screen.dart';
+import '../../screens/shared/notification_screen.dart';
 
 // CEO
 import '../../screens/ceo/ceo_dashboard_screen.dart';
@@ -73,6 +74,10 @@ class AppRouter {
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => const NotificationScreen(),
         ),
 
         // ── CEO Routes ────────────────────────────────────────────────────
