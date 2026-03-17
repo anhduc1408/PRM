@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../data/database_service.dart';
 
 class StaffShell extends StatefulWidget {
   final Widget child;
@@ -14,6 +15,26 @@ class StaffShell extends StatefulWidget {
 
 class _StaffShellState extends State<StaffShell> {
   int _currentIndex = 0;
+  String? _storeName;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStoreName();
+  }
+
+  Future<void> _fetchStoreName() async {
+    final auth = context.read<AuthProvider>();
+    final storeId = auth.currentUser?.storeId;
+    if (storeId != null) {
+      final store = await DatabaseService.instance.getStore(storeId);
+      if (mounted) {
+        setState(() {
+          _storeName = store?.name;
+        });
+      }
+    }
+  }
 
   final _tabs = [
     (path: '/staff/products', icon: Icons.grid_view_outlined, activeIcon: Icons.grid_view, label: 'Sản phẩm'),
@@ -58,7 +79,7 @@ class _StaffShellState extends State<StaffShell> {
               children: [
                 const Text('Mixue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
                 Text(
-                  auth.currentUser?.storeId != null ? 'Cửa hàng #${auth.currentUser!.storeId}' : 'Nhân viên',
+                  _storeName ?? (auth.currentUser?.storeId != null ? 'Cửa hàng #${auth.currentUser!.storeId}' : 'Nhân viên'),
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],

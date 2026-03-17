@@ -32,9 +32,11 @@ class _ManagerInventoryScreenState extends State<ManagerInventoryScreen> {
 
   Future<_InventoryData> _fetch() async {
     final storeId = context.read<AuthProvider>().currentUser?.storeId;
-    final warehouses = storeId != null
+    final allWarehouses = storeId != null
         ? await DatabaseService.instance.getWarehousesByStore(storeId)
         : await DatabaseService.instance.getAllWarehouses();
+
+    final warehouses = allWarehouses.where((w) => w.type != 'main').toList();
 
     final whId = _selectedWarehouse?.id ?? (warehouses.isNotEmpty ? warehouses.first.id : null);
     final items = whId != null

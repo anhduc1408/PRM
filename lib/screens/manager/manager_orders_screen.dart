@@ -20,6 +20,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
   String? _filterStaff;   // null | staffName
   DateTime? _filterDate;
   SalesOrderModel? _selectedOrder;
+  int _currentPage = 1;
   late Future<_OrdersData> _dataFuture;
 
   @override
@@ -111,6 +112,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                         setState(() {
                           _period = p;
                           _filterDate = null;
+                          _currentPage = 1;
                         });
                         _load();
                       },
@@ -146,7 +148,10 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                             ),
                           );
                           if (picked != null) {
-                            setState(() => _filterDate = picked);
+                            setState(() {
+                              _filterDate = picked;
+                              _currentPage = 1;
+                            });
                             _load();
                           }
                         },
@@ -172,7 +177,10 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                               if (_filterDate != null)
                                 GestureDetector(
                                   onTap: () {
-                                    setState(() => _filterDate = null);
+                                    setState(() {
+                                      _filterDate = null;
+                                      _currentPage = 1;
+                                    });
                                     _load();
                                   },
                                   child: const Icon(Icons.close, size: 13, color: AppColors.textHint),
@@ -209,7 +217,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                           DropdownMenuItem(value: 'cash', child: Text('Tiền mặt', style: TextStyle(fontSize: 12))),
                           DropdownMenuItem(value: 'transfer', child: Text('Chuyển khoản', style: TextStyle(fontSize: 12))),
                         ],
-                        onChanged: (v) { setState(() => _filterPayment = v); },
+                        onChanged: (v) { setState(() { _filterPayment = v; _currentPage = 1; }); },
                       ),
                     ),
 
@@ -244,7 +252,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                               ),
                             ),
                           ],
-                          onChanged: (v) => setState(() => _filterStaff = v),
+                          onChanged: (v) => setState(() { _filterStaff = v; _currentPage = 1; }),
                         ),
                       ),
                     ],
@@ -266,8 +274,17 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                   return Center(child: Text('Lỗi: ${snap.error}'));
                 }
                 final data = snap.data!;
-                final filtered = _filtered(data.orders);
-                final totalRevenue = filtered.fold<double>(0, (s, o) => s + o.finalAmount);
+                final allFiltered = _filtered(data.orders);
+                final totalRevenue = allFiltered.fold<double>(0, (s, o) => s + o.finalAmount);
+
+                const int itemsPerPage = 10;
+                final int totalPages = (allFiltered.isEmpty ? 1 : (allFiltered.length / itemsPerPage).ceil());
+                if (_currentPage > totalPages) _currentPage = totalPages;
+
+                final startIndex = (_currentPage - 1) * itemsPerPage;
+                int endIndex = startIndex + itemsPerPage;
+                if (endIndex > allFiltered.length) endIndex = allFiltered.length;
+                final paginatedItems = allFiltered.isEmpty ? <SalesOrderModel>[] : allFiltered.sublist(startIndex, endIndex);
 
                 return RefreshIndicator(
                   onRefresh: () async => _load(),
@@ -281,7 +298,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                         child: Row(
                           children: [
                             _SummaryBadge(
-                              label: '${filtered.length} đơn',
+                              label: '${allFiltered.length} đơn',
                               icon: Icons.receipt_long,
                               color: AppColors.info,
                             ),
@@ -299,6 +316,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                                     _filterPayment = null;
                                     _filterStaff = null;
                                     _filterDate = null;
+                                    _currentPage = 1;
                                   });
                                   _load();
                                 },
@@ -327,7 +345,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
 
                       // Order list
                       Expanded(
-                        child: filtered.isEmpty
+                        child: allFiltered.isEmpty
                             ? const Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -343,9 +361,9 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                               )
                             : ListView.builder(
                                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                itemCount: filtered.length,
+                                itemCount: paginatedItems.length,
                                 itemBuilder: (context, i) {
-                                  final o = filtered[i];
+                                  final o = paginatedItems[i];
                                   final isSel = _selectedOrder?.id == o.id;
                                   final payMethod = o.payments.isNotEmpty
                                       ? o.payments.first.paymentMethod
@@ -591,6 +609,29 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                                 },
                               ),
                       ),
+                      
+                      // Pagination UI
+                      if (totalPages > 1)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.chevron_left),
+                                onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null,
+                              ),
+                              Text(
+                                'Trang $_currentPage / $totalPages',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.chevron_right),
+                                onPressed: _currentPage < totalPages ? () => setState(() => _currentPage++) : null,
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 );
