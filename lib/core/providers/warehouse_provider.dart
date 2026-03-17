@@ -150,6 +150,34 @@ class WarehouseProvider extends ChangeNotifier {
     }
   }
 
+  // ─── CHECKER: RECEIVE TRANSFER ────────────────────────────────────────────
+  /// Tải danh sách phiếu giao hàng đến kho [toWarehouseId]
+  Future<List<StockTransferModel>> loadIncomingTransfers(int toWarehouseId) async {
+    return DatabaseService.instance.getTransfersByToWarehouse(toWarehouseId);
+  }
+
+  /// Xác nhận nhận hàng - cập nhật actual_qty + tồn kho + status
+  Future<bool> receiveTransfer({
+    required int transferId,
+    required int toWarehouseId,
+    required int receivedBy,
+    required List<Map<String, int>> items,
+  }) async {
+    try {
+      await DatabaseService.instance.receiveTransfer(
+        transferId: transferId,
+        toWarehouseId: toWarehouseId,
+        receivedBy: receivedBy,
+        items: items,
+      );
+      await loadTransfers();
+      await loadInventoryForWarehouse(toWarehouseId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ─── HELPERS ─────────────────────────────────────────────────────────────
   List<ProductModel> productsForCategory(int categoryId) =>
       _products.where((p) => p.categoryId == categoryId).toList();

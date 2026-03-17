@@ -31,12 +31,14 @@ import '../../screens/manager/manager_staff_screen.dart';
 import '../../screens/manager/manager_revenue_screen.dart';
 import '../../screens/manager/manager_inventory_screen.dart';
 import '../../screens/manager/manager_orders_screen.dart';
+import '../../screens/manager/manager_receive_screen.dart';
 
 // Warehouse
 import '../../screens/warehouse/warehouse_shell.dart';
 import '../../screens/warehouse/warehouse_store_list_screen.dart';
 import '../../screens/warehouse/warehouse_product_screen.dart';
 import '../../screens/warehouse/warehouse_transfer_screen.dart';
+import '../../screens/warehouse/checker_receive_screen.dart';
 
 // CEO Shell
 import '../../screens/ceo/ceo_shell.dart';
@@ -163,6 +165,10 @@ class AppRouter {
               path: '/manager/orders',
               builder: (context, state) => const ManagerOrdersScreen(),
             ),
+            GoRoute(
+              path: '/manager/receive',
+              builder: (context, state) => const ManagerReceiveScreen(),
+            ),
           ],
         ),
 
@@ -183,6 +189,10 @@ class AppRouter {
             GoRoute(
               path: '/warehouse/transfer',
               builder: (context, state) => const WarehouseTransferScreen(),
+            ),
+            GoRoute(
+              path: '/warehouse/receive',
+              builder: (context, state) => const CheckerReceiveScreen(),
             ),
           ],
         ),
