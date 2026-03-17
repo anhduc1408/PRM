@@ -166,6 +166,7 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                           phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text.trim(),
                           role: selectedRole, storeId: storeId,
                           createdAt: now, updatedAt: now,
+                          startDate: now,
                         );
                         await DatabaseService.instance.insertUser(newUser);
                         if (ctx.mounted) Navigator.pop(ctx);

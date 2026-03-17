@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../widgets/notification_bell.dart';
+import '../../data/database_service.dart';
 
 class ManagerShell extends StatefulWidget {
   final Widget child;
@@ -15,6 +16,26 @@ class ManagerShell extends StatefulWidget {
 
 class _ManagerShellState extends State<ManagerShell> {
   int _currentIndex = 0;
+  String? _storeName;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStoreName();
+  }
+
+  Future<void> _fetchStoreName() async {
+    final auth = context.read<AuthProvider>();
+    final storeId = auth.currentUser?.storeId;
+    if (storeId != null) {
+      final store = await DatabaseService.instance.getStore(storeId);
+      if (mounted) {
+        setState(() {
+          _storeName = store?.name;
+        });
+      }
+    }
+  }
 
   final _tabs = [
     (
@@ -54,9 +75,9 @@ class _ManagerShellState extends State<ManagerShell> {
   @override
   Widget build(BuildContext context) {
     final auth = context.read<AuthProvider>();
-    final storeName = auth.currentUser?.storeId != null
+    final storeName = _storeName ?? (auth.currentUser?.storeId != null
         ? 'Cửa hàng #${auth.currentUser!.storeId}'
-        : 'Cửa hàng';
+        : 'Cửa hàng');
 
     return Scaffold(
       appBar: AppBar(
