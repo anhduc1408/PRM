@@ -27,9 +27,10 @@ class _WarehouseShellState extends State<WarehouseShell> {
   int _currentIndex(BuildContext ctx) {
     final loc = GoRouterState.of(ctx).matchedLocation;
     final isChecker = context.read<AuthProvider>().currentUser?.role == UserRole.inventoryChecker;
-    
+
     if (isChecker) {
-      if (loc.startsWith('/warehouse/transfer')) return 1;
+      if (loc.startsWith('/warehouse/receive')) return 1;
+      if (loc.startsWith('/warehouse/transfer')) return 2;
       return 0; // products
     } else {
       if (loc.startsWith('/warehouse/products')) return 1;
@@ -44,6 +45,7 @@ class _WarehouseShellState extends State<WarehouseShell> {
     final wh = context.watch<WarehouseProvider>();
     final lowCount = wh.lowStockItems.length;
     final idx = _currentIndex(context);
+    final isChecker = user?.role == UserRole.inventoryChecker;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -108,10 +110,10 @@ class _WarehouseShellState extends State<WarehouseShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: idx,
         onDestinationSelected: (i) {
-          final isChecker = context.read<AuthProvider>().currentUser?.role == UserRole.inventoryChecker;
           if (isChecker) {
             if (i == 0) context.go('/warehouse/products');
-            if (i == 1) context.go('/warehouse/transfer');
+            if (i == 1) context.go('/warehouse/receive');
+            if (i == 2) context.go('/warehouse/transfer');
           } else {
             if (i == 0) context.go('/warehouse/stores');
             if (i == 1) context.go('/warehouse/products');
@@ -121,19 +123,24 @@ class _WarehouseShellState extends State<WarehouseShell> {
         backgroundColor: AppColors.surface,
         indicatorColor: const Color(0xFF2D7A50).withValues(alpha: 0.15),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: user?.role == UserRole.inventoryChecker 
+        destinations: isChecker
           ? const [
             NavigationDestination(
               icon: Icon(Icons.inventory_2_outlined),
               selectedIcon: Icon(Icons.inventory_2, color: Color(0xFF2D7A50)),
-              label: 'Hàng hóa & Tồn kho',
+              label: 'Hàng hóa',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.move_to_inbox_outlined),
+              selectedIcon: Icon(Icons.move_to_inbox, color: Color(0xFF2D7A50)),
+              label: 'Xác nhận nhận',
             ),
             NavigationDestination(
               icon: Icon(Icons.local_shipping_outlined),
               selectedIcon: Icon(Icons.local_shipping, color: Color(0xFF2D7A50)),
               label: 'Phân phối',
             ),
-          ] 
+          ]
           : const [
             NavigationDestination(
               icon: Icon(Icons.store_outlined),

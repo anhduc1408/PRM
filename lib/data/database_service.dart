@@ -401,6 +401,36 @@ class DatabaseService {
         orderCounter++;
       }
     }
+
+    // Stock Transfers - du lieu mau de checker test
+    final t1Date = DateTime.now().subtract(const Duration(hours: 3));
+    final t1Id = await db.insert('stock_transfers', {
+      'from_warehouse_id': 1, 'to_warehouse_id': 2, 'requested_by': 6,
+      'status': 'in_transit', 'note': 'Bo sung hang cuoi tuan',
+      'created_at': t1Date.toIso8601String(),
+    });
+    await db.insert('stock_transfer_items', {'transfer_id': t1Id, 'product_id': 1, 'estimate_quantity': 50, 'actual_quantity': 0});
+    await db.insert('stock_transfer_items', {'transfer_id': t1Id, 'product_id': 4, 'estimate_quantity': 30, 'actual_quantity': 0});
+    await db.insert('stock_transfer_items', {'transfer_id': t1Id, 'product_id': 7, 'estimate_quantity': 20, 'actual_quantity': 0});
+
+    final t2Date = DateTime.now().subtract(const Duration(hours: 1));
+    final t2Id = await db.insert('stock_transfers', {
+      'from_warehouse_id': 1, 'to_warehouse_id': 2, 'requested_by': 6,
+      'status': 'pending', 'note': null,
+      'created_at': t2Date.toIso8601String(),
+    });
+    await db.insert('stock_transfer_items', {'transfer_id': t2Id, 'product_id': 2, 'estimate_quantity': 25, 'actual_quantity': 0});
+    await db.insert('stock_transfer_items', {'transfer_id': t2Id, 'product_id': 9, 'estimate_quantity': 15, 'actual_quantity': 0});
+
+    final t3Date = DateTime.now().subtract(const Duration(days: 2));
+    final t3Id = await db.insert('stock_transfers', {
+      'from_warehouse_id': 1, 'to_warehouse_id': 3, 'requested_by': 6,
+      'approved_by': 6, 'status': 'received', 'note': 'Hang giao kho Q3',
+      'created_at': t3Date.toIso8601String(),
+      'received_at': t3Date.add(const Duration(hours: 5)).toIso8601String(),
+    });
+    await db.insert('stock_transfer_items', {'transfer_id': t3Id, 'product_id': 3, 'estimate_quantity': 40, 'actual_quantity': 38});
+    await db.insert('stock_transfer_items', {'transfer_id': t3Id, 'product_id': 6, 'estimate_quantity': 20, 'actual_quantity': 20});
   }
 
   // ─── USER QUERIES ─────────────────────────────────────────────────────────
@@ -621,7 +651,80 @@ class DatabaseService {
     await db.update('stock_transfers', data, where: 'id = ?', whereArgs: [transferId]);
   }
 
+  /// Lấy danh sách phiếu chuyển kho theo kho nhận
+  Future<List<StockTransferModel>> getTransfersByToWarehouse(int toWarehouseId, {String? status}) async {
+    final db = await database;
+    final statusFilter = status != null ? "AND st.status = '$status'" : '';
+    final rows = await db.rawQuery('''
+      SELECT st.*,
+        fw.name as from_warehouse_name, tw.name as to_warehouse_name,
+        ru.full_name as requested_by_name, au.full_name as approved_by_name
+      FROM stock_transfers st
+      LEFT JOIN warehouses fw ON fw.id = st.from_warehouse_id
+      LEFT JOIN warehouses tw ON tw.id = st.to_warehouse_id
+      LEFT JOIN users ru ON ru.id = st.requested_by
+      LEFT JOIN users au ON au.id = st.approved_by
+      WHERE st.to_warehouse_id = ? $statusFilter
+      ORDER BY st.created_at DESC
+    ''', [toWarehouseId]);
+    final transfers = rows.map(_mapTransfer).toList();
+    for (final t in transfers) {
+      final itemRows = await db.rawQuery('''
+        SELECT ti.*, p.name as product_name, p.sku as product_sku
+        FROM stock_transfer_items ti JOIN products p ON p.id = ti.product_id
+        WHERE ti.transfer_id = ?
+      ''', [t.id]);
+      t.items = itemRows.map(_mapTransferItem).toList();
+    }
+    return transfers;
+  }
+
+  /// Xác nhận nhận hàng: cập nhật actual_qty, tồn kho kho nhận, đổi status = 'received'
+  Future<void> receiveTransfer({
+    required int transferId,
+    required int toWarehouseId,
+    required int receivedBy,
+    required List<Map<String, int>> items,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    await db.transaction((txn) async {
+      for (final item in items) {
+        await txn.update(
+          'stock_transfer_items',
+          {'actual_quantity': item['actualQty']!},
+          where: 'id = ?', whereArgs: [item['itemId']!],
+        );
+        final invRows = await txn.query(
+          'warehouse_inventory',
+          columns: ['id', 'quantity'],
+          where: 'warehouse_id = ? AND product_id = ?',
+          whereArgs: [toWarehouseId, item['productId']!],
+        );
+        if (invRows.isNotEmpty) {
+          final currentQty = invRows.first['quantity'] as int;
+          await txn.update(
+            'warehouse_inventory',
+            {'quantity': currentQty + item['actualQty']!, 'updated_at': now},
+            where: 'id = ?', whereArgs: [invRows.first['id']],
+          );
+        } else {
+          await txn.insert('warehouse_inventory', {
+            'warehouse_id': toWarehouseId, 'product_id': item['productId']!,
+            'quantity': item['actualQty']!, 'min_quantity': 10, 'updated_at': now,
+          });
+        }
+      }
+      await txn.update(
+        'stock_transfers',
+        {'status': 'received', 'approved_by': receivedBy, 'received_at': now},
+        where: 'id = ?', whereArgs: [transferId],
+      );
+    });
+  }
+
   // ─── SALES ORDER QUERIES ──────────────────────────────────────────────────
+
   Future<List<SalesOrderModel>> getSalesOrders({
     int? storeId, DateTime? from, DateTime? to, String? paymentStatus,
   }) async {

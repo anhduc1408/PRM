@@ -51,6 +51,12 @@ class _ManagerShellState extends State<ManagerShell> {
       label: 'Doanh thu',
     ),
     (
+      path: '/manager/receive',
+      icon: Icons.move_to_inbox_outlined,
+      activeIcon: Icons.move_to_inbox,
+      label: 'Nhận hàng',
+    ),
+    (
       path: '/manager/inventory',
       icon: Icons.inventory_2_outlined,
       activeIcon: Icons.inventory_2,
@@ -60,7 +66,7 @@ class _ManagerShellState extends State<ManagerShell> {
       path: '/manager/orders',
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
-      label: 'Lịch sử đơn',
+      label: 'Đơn hàng',
     ),
   ];
 
