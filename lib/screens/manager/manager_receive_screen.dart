@@ -96,65 +96,65 @@ class _ManagerReceiveScreenState extends State<ManagerReceiveScreen>
       body: Column(children: [
         // ─── Banner header ───────────────────────────────────────────────
         Container(
+          padding: const EdgeInsets.all(24),
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF1A237E), Color(0xFF283593)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: AppColors.divider)),
           ),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text('📥', style: TextStyle(fontSize: 20)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Xác nhận nhận hàng',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
-                  Text('Quản lý Cửa hàng · ${_allTransfers.length} phiếu',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11)),
-                ]),
-              ),
-              if (pendingCount > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning,
-                    borderRadius: BorderRadius.circular(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Xác nhận nhận hàng', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Quản lý Cửa hàng · ${_allTransfers.length} phiếu',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      )
+                    ],
                   ),
-                  child: Text('$pendingCount chờ xử lý',
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                tooltip: 'Làm mới',
-                onPressed: _loadData,
+                  Row(
+                    children: [
+                      if (pendingCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.warningLight,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text('$pendingCount chờ xử lý',
+                              style: const TextStyle(color: AppColors.warning, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary),
+                        tooltip: 'Làm mới',
+                        onPressed: _loadData,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ]),
-            const SizedBox(height: 10),
-            // TabBar nằm trong header
-            TabBar(
-              controller: _tabCtrl,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white54,
-              indicatorColor: Colors.white,
-              indicatorWeight: 3,
-              tabs: [
-                Tab(text: 'Chờ xử lý (${_pendingOrInTransit.length})'),
-                Tab(text: 'Đã nhận (${_byStatus('received').length})'),
-                Tab(text: 'Đã hủy (${_byStatus('cancelled').length})'),
-              ],
-            ),
-          ]),
+              const SizedBox(height: 24),
+              TabBar(
+                controller: _tabCtrl,
+                labelColor: AppColors.primary,
+                unselectedLabelColor: AppColors.textSecondary,
+                indicatorColor: AppColors.primary,
+                indicatorWeight: 3,
+                tabs: [
+                  Tab(text: 'Chờ xử lý (${_pendingOrInTransit.length})'),
+                  Tab(text: 'Đã nhận (${_byStatus('received').length})'),
+                  Tab(text: 'Đã hủy (${_byStatus('cancelled').length})'),
+                ],
+              ),
+            ],
+          ),
         ),
 
         // ─── TabBarView ────────────────────────────────────────────────────
@@ -453,16 +453,15 @@ class _TransferCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
             child: SizedBox(
               width: double.infinity, height: 44,
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 onPressed: () => _showReceiveDialog(context, t),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A237E),
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                icon: const Icon(Icons.check_circle_outline, size: 18),
-                label: const Text('Xác nhận nhận hàng',
+                child: const Text('Xác nhận nhận hàng',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
               ),
             ),
@@ -743,23 +742,27 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity, height: 52,
-                child: ElevatedButton.icon(
+                child: ElevatedButton(
                   onPressed: _submitting ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A237E),
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 0,
                   ),
-                  icon: _submitting
-                      ? const SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                      : const Icon(Icons.check_circle_rounded, size: 20),
-                  label: Text(
-                    _submitting ? 'Đang xác nhận...' : 'Xác nhận nhận hàng',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                  ),
+                  child: _submitting
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                             SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
+                             SizedBox(width: 8),
+                             Text('Đang xác nhận...', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                          ]
+                        )
+                      : const Text(
+                          'Xác nhận nhận hàng',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                        ),
                 ),
               ),
             ]),
