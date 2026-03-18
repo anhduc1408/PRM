@@ -935,6 +935,11 @@ class DatabaseService {
     });
   }
 
+  Future<void> updateShiftAssignmentStatus(int id, String status) async {
+    final db = await database;
+    await db.update('shift_assignments', {'status': status}, where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<void> deleteShiftAssignment(int id) async {
     final db = await database;
     await db.delete('shift_assignments', where: 'id = ?', whereArgs: [id]);
@@ -979,17 +984,24 @@ class DatabaseService {
   }
 
   /// Chèn một notification mới, trả về id vừa tạo.
-  Future<int> insertNotification(NotificationModel n) async {
+  Future<int> insertNotification({
+    required String type,
+    required String title,
+    required String content,
+    int? targetUserId,
+    int? storeId,
+    int? productId,
+  }) async {
     final db = await database;
-    return db.insert('notifications', {
-      'type': n.type,
-      'title': n.title,
-      'content': n.content,
-      'target_user_id': n.targetUserId,
-      'store_id': n.storeId,
-      'product_id': n.productId,
+    return await db.insert('notifications', {
+      'type': type,
+      'title': title,
+      'content': content,
+      'target_user_id': targetUserId,
+      'store_id': storeId,
+      'product_id': productId,
       'is_read': 0,
-      'created_at': n.createdAt.toIso8601String(),
+      'created_at': DateTime.now().toIso8601String(),
     });
   }
 

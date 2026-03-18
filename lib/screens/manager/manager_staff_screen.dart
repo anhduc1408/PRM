@@ -19,6 +19,7 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
   _StaffPageData? _cachedData;
   late DateTime _startDate;
   late DateTime _endDate;
+  late DateTime _selectedListDate;
   int _viewMode = 0; // 0: Schedule View, 1: List View
 
   @override
@@ -27,6 +28,7 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
     final now = DateTime.now();
     _startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
     _endDate = _startDate.add(const Duration(days: 6));
+    _selectedListDate = DateTime(now.year, now.month, now.day);
     _dataFuture = _fetch();
   }
 
@@ -45,10 +47,11 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
     
     final Map<int, Map<String, List<ShiftAssignmentModel>>> assignmentMap = {};
     for (var staff in staffOnly) {
+      // Get assignments for BOTH schedule view range AND selected list date
       final assignments = await DatabaseService.instance.getShiftAssignments(
         userId: staff.id,
-        fromDate: _startDate,
-        toDate: _endDate,
+        fromDate: _startDate.isBefore(_selectedListDate) ? _startDate : _selectedListDate,
+        toDate: _endDate.isAfter(_selectedListDate) ? _endDate : _selectedListDate,
       );
       final staffMap = <String, List<ShiftAssignmentModel>>{};
       for (var a in assignments) {
@@ -169,11 +172,85 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
         );
         await DatabaseService.instance.insertShiftAssignment(assignment);
       }
-      
-      _load();
+            _load();
       if (mounted) {
+        final curUser = context.read<AuthProvider>().currentUser;
+        await DatabaseService.instance.insertNotification(
+          type: 'system',
+          title: 'Cập nhật lịch làm',
+          content: '${curUser?.fullName ?? "Quản lý"} đã cập nhật lịch làm ngày ${FormatUtils.formatDate(date)} cho ${staff.fullName}.',
+          targetUserId: staff.id,
+          storeId: staff.storeId,
+        );
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã cập nhật ca thành công cho ${staff.fullName}'), backgroundColor: AppColors.success));
       }
+    }
+  }
+
+  Future<void> _markAbsentWithModal(UserModel staff, DateTime date, List<WorkShiftModel> shifts, List<ShiftAssignmentModel> assignments) async {
+    if (assignments.isEmpty) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nhân viên không có ca làm vào ngày này.')));
+       return;
+    }
+
+    final curUser = context.read<AuthProvider>().currentUser;
+    if (curUser == null) return;
+
+    List<int> toMarkIds = [];
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text('Chọn ca nghỉ - ${staff.fullName}'),
+            content: SizedBox(
+               width: 400,
+               child: Column(
+                 mainAxisSize: MainAxisSize.min,
+                 children: assignments.map((a) {
+                    final shift = shifts.firstWhere((s) => s.id == a.shiftId, orElse: () => WorkShiftModel(id:0, name:'Unk', startTime:'', endTime:'', status:'', createdAt: DateTime.now(), updatedAt: DateTime.now()));
+                    final isMarked = toMarkIds.contains(a.id);
+                    return CheckboxListTile(
+                       title: Text(shift.name),
+                       subtitle: Text('${shift.startTime} - ${shift.endTime}'),
+                       value: isMarked,
+                       onChanged: (v) {
+                          setDialogState(() {
+                             if (v == true) toMarkIds.add(a.id);
+                             else toMarkIds.remove(a.id);
+                          });
+                       },
+                    );
+                 }).toList(),
+               ),
+            ),
+            actions: [
+               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+               ElevatedButton(
+                 onPressed: toMarkIds.isEmpty ? null : () async {
+                    for (var id in toMarkIds) {
+                       await DatabaseService.instance.updateShiftAssignmentStatus(id, 'absent');
+                    }
+                    Navigator.pop(ctx);
+                 }, 
+                 child: const Text('Xác nhận nghỉ')
+               ),
+            ],
+          );
+        }
+      )
+    );
+
+    if (toMarkIds.isNotEmpty) {
+       await DatabaseService.instance.insertNotification(
+          type: 'system',
+          title: 'Báo nghỉ ca làm',
+          content: 'Quản lý ${curUser.fullName} đã đánh dấu nghỉ ${toMarkIds.length} ca cho ${staff.fullName} vào ngày ${FormatUtils.formatDate(date)}.',
+          targetUserId: staff.id,
+          storeId: staff.storeId,
+       );
+       _load();
     }
   }
 
@@ -355,77 +432,149 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Danh sách nhân viên', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+               children: [
+                   const Text('Danh sách nhân viên', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                   Row(
+                      children: [
+                         const Text('Ngày xem: ', style: TextStyle(color: AppColors.textSecondary)),
+                         const SizedBox(width: 8),
+                         OutlinedButton.icon(
+                            icon: const Icon(Icons.calendar_today, size: 16),
+                            label: Text(FormatUtils.formatDate(_selectedListDate)),
+                            onPressed: () async {
+                               final date = await showDatePicker(
+                                  context: context, 
+                                  initialDate: _selectedListDate, 
+                                  firstDate: DateTime(2020), 
+                                  lastDate: DateTime.now().add(const Duration(days: 365))
+                               );
+                               if (date != null) {
+                                  setState(() => _selectedListDate = date);
+                                  _load();
+                               }
+                            },
+                         )
+                      ],
+                   )
+               ],
+            ),
           ),
           const Divider(height: 1),
           Expanded(
-            child: SingleChildScrollView(
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
-                columns: const [
-                  DataColumn(label: Text('Nhân viên', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('SĐT / Email', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Tùy chọn', style: TextStyle(fontWeight: FontWeight.bold))),
-                ],
-                rows: data.staffList.map((staff) {
-                  final isActive = staff.status == 'active';
-                  return DataRow(
-                    cells: [
-                      DataCell(
-                         Row(
-                           children: [
-                             CircleAvatar(
-                               backgroundColor: AppColors.primary,
-                               child: Text(staff.fullName[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
-                             ),
-                             const SizedBox(width: 12),
-                             Text(staff.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                           ],
-                         )
-                      ),
-                      DataCell(Text(staff.phone ?? staff.email ?? staff.username)),
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isActive ? AppColors.successLight : AppColors.warningLight,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(isActive ? 'Đang làm' : 'Nghỉ phép', style: TextStyle(fontSize: 12, color: isActive ? AppColors.success : AppColors.warning, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                      DataCell(
-                        Row(
-                          children: [
-                            OutlinedButton.icon(
-                              icon: Icon(isActive ? Icons.pause : Icons.play_arrow, size: 16),
-                              label: Text(isActive ? 'Đánh dấu nghỉ' : 'Kích hoạt', style: TextStyle(color: isActive ? AppColors.error : AppColors.success)),
-                              onPressed: () async {
-                                final updated = staff.copyWith(status: isActive ? 'inactive' : 'active');
-                                await DatabaseService.instance.updateUser(updated);
-                                _load();
-                              },
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                   constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                   child: SingleChildScrollView(
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
+                      showCheckboxColumn: false,
+                      columns: const [
+                        DataColumn(label: Text('Nhân viên', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('SĐT / Email', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('Ca làm', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('Tùy chọn', style: TextStyle(fontWeight: FontWeight.bold))),
+                      ],
+                      rows: data.staffList.map((staff) {
+                        final isActive = staff.status == 'active';
+                        final key = '${_selectedListDate.year}-${_selectedListDate.month}-${_selectedListDate.day}';
+                        final assignments = data.assignmentMap[staff.id]?[key] ?? [];
+
+                        return DataRow(
+                          cells: [
+                            DataCell(
+                               Row(
+                                 children: [
+                                   CircleAvatar(
+                                     backgroundColor: AppColors.primary,
+                                     child: Text(staff.fullName[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
+                                   ),
+                                   const SizedBox(width: 12),
+                                   Text(staff.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                 ],
+                               )
                             ),
-                            const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              icon: const Icon(Icons.password, size: 16),
-                              label: const Text('Reset MK'),
-                              onPressed: () async {
-                                await DatabaseService.instance.resetPassword(staff.id);
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('MK đã reset về 123456')));
-                                }
-                              },
-                            )
-                          ],
-                        )
-                      ),
-                    ]
-                  );
-                }).toList(),
+                            DataCell(Text(staff.phone ?? staff.email ?? staff.username)),
+                            DataCell(
+                               assignments.isEmpty 
+                               ? const Text('Trống', style: TextStyle(color: AppColors.textHint))
+                               : Wrap(
+                                   spacing: 4,
+                                   children: assignments.map((a) {
+                                      final s = data.shifts.firstWhere((sh) => sh.id == a.shiftId, orElse: () => WorkShiftModel(id:0, name:'Unk', startTime:'', endTime:'', status:'', createdAt: DateTime.now(), updatedAt: DateTime.now()));
+                                      final isAbsent = a.status == 'absent';
+                                      return Container(
+                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                         decoration: BoxDecoration(
+                                            color: isAbsent ? AppColors.errorLight : AppColors.primaryLight,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: isAbsent ? AppColors.error : AppColors.primary, width: 0.5)
+                                         ),
+                                         child: Text(s.name, style: TextStyle(fontSize: 10, color: isAbsent ? AppColors.error : AppColors.primary, fontWeight: FontWeight.bold)),
+                                      );
+                                   }).toList()
+                               )
+                            ),
+                            DataCell(
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isActive ? AppColors.successLight : AppColors.warningLight,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(isActive ? 'Đang làm' : 'Nghỉ phép', style: TextStyle(fontSize: 12, color: isActive ? AppColors.success : AppColors.warning, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            DataCell(
+                              Row(
+                                children: [
+                                  OutlinedButton.icon(
+                                    icon: Icon(isActive ? Icons.event_busy : Icons.play_arrow, size: 16),
+                                    label: Text(isActive ? 'Đánh dấu nghỉ' : 'Kích hoạt', style: TextStyle(color: isActive ? AppColors.error : AppColors.success)),
+                                    onPressed: () async {
+                                      if (isActive) {
+                                         // Show modal to pick shifts
+                                         _markAbsentWithModal(staff, _selectedListDate, data.shifts, assignments);
+                                      } else {
+                                         final updated = staff.copyWith(status: 'active');
+                                         await DatabaseService.instance.updateUser(updated);
+                                         await DatabaseService.instance.insertNotification(
+                                            type: 'system',
+                                            title: 'Kích hoạt tài khoản',
+                                            content: 'Quản lý đã kích hoạt lại tài khoản cho ${staff.fullName}.',
+                                            targetUserId: staff.id,
+                                            storeId: staff.storeId,
+                                         );
+                                         _load();
+                                      }
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
+                                    icon: const Icon(Icons.password, size: 16),
+                                    label: const Text('Reset MK'),
+                                    onPressed: () async {
+                                      await DatabaseService.instance.resetPassword(staff.id);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('MK đã reset về 123456')));
+                                      }
+                                    },
+                                  )
+                                ],
+                              )
+                            ),
+                          ]
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
