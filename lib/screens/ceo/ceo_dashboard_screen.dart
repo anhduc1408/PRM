@@ -308,7 +308,7 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          RevenueChart(data: d.chartData, period: PeriodFilter.month),
+          RevenueChart(data: d.chartData, days: _period == PeriodFilter.day ? 1 : (_period == PeriodFilter.week ? 7 : 30)),
         ],
       ),
     );

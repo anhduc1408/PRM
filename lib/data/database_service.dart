@@ -962,17 +962,61 @@ class DatabaseService {
     )).toList();
   }
 
-  Future<List<ProductSaleModel>> getTopProducts({int? storeId, int limit = 5}) async {
+  Future<List<ChartEntry>> getRevenueChartDataByDateRange(int? storeId, DateTime from, DateTime to) async {
     final db = await database;
-    final storeFilter = storeId != null ? 'AND so.store_id = $storeId' : '';
+    final storeFilter = storeId != null ? 'AND store_id = $storeId' : '';
+    
+    // Determine group format based on duration
+    final diff = to.difference(from).inDays;
+    String groupFormat;
+    if (diff <= 1) {
+      groupFormat = "%H"; // Group by hour
+    } else {
+      groupFormat = "%Y-%m-%d"; // Group by date
+    }
+    
+    final rows = await db.rawQuery('''
+      SELECT strftime('$groupFormat', order_date) as label, SUM(final_amount) as total
+      FROM sales_orders
+      WHERE order_date >= ? AND order_date <= ? $storeFilter AND payment_status = 'paid'
+      GROUP BY label ORDER BY label ASC
+    ''', [from.toIso8601String(), to.toIso8601String()]);
+    
+    return rows.map((r) => ChartEntry(
+      label: r['label'] as String,
+      value: ((r['total'] as num?) ?? 0).toDouble(),
+    )).toList();
+  }
+
+  Future<List<ProductSaleModel>> getTopProducts({int? storeId, DateTime? from, DateTime? to, int limit = 5}) async {
+    final db = await database;
+    final conditions = <String>['so.payment_status = \'paid\''];
+    final args = <dynamic>[];
+    
+    if (storeId != null) {
+      conditions.add('so.store_id = ?');
+      args.add(storeId);
+    }
+    if (from != null) {
+      conditions.add('so.order_date >= ?');
+      args.add(from.toIso8601String());
+    }
+    if (to != null) {
+      conditions.add('so.order_date <= ?');
+      args.add(to.toIso8601String());
+    }
+    
+    final where = 'WHERE ${conditions.join(' AND ')}';
+    
     final rows = await db.rawQuery('''
       SELECT p.id, p.name, SUM(soi.quantity) as qty, SUM(soi.line_total) as revenue
       FROM sales_order_items soi
       JOIN products p ON p.id = soi.product_id
       JOIN sales_orders so ON so.id = soi.sales_order_id
-      WHERE so.payment_status = 'paid' $storeFilter
+      $where
       GROUP BY p.id ORDER BY qty DESC LIMIT $limit
-    ''');
+    ''', args);
+    
     return rows.map((r) => ProductSaleModel(
       productId: r['id'] as int,
       productName: r['name'] as String,
@@ -1023,6 +1067,16 @@ class DatabaseService {
     });
   }
 
+  Future<void> updateShiftAssignmentStatus(int id, String status) async {
+    final db = await database;
+    await db.update('shift_assignments', {'status': status}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteShiftAssignment(int id) async {
+    final db = await database;
+    await db.delete('shift_assignments', where: 'id = ?', whereArgs: [id]);
+  }
+
   // ─── NOTIFICATION QUERIES ─────────────────────────────────────────────────
   Future<List<NotificationModel>> getNotifications({int? userId}) async {
     final db = await database;
@@ -1062,17 +1116,24 @@ class DatabaseService {
   }
 
   /// Chèn một notification mới, trả về id vừa tạo.
-  Future<int> insertNotification(NotificationModel n) async {
+  Future<int> insertNotification({
+    required String type,
+    required String title,
+    required String content,
+    int? targetUserId,
+    int? storeId,
+    int? productId,
+  }) async {
     final db = await database;
-    return db.insert('notifications', {
-      'type': n.type,
-      'title': n.title,
-      'content': n.content,
-      'target_user_id': n.targetUserId,
-      'store_id': n.storeId,
-      'product_id': n.productId,
+    return await db.insert('notifications', {
+      'type': type,
+      'title': title,
+      'content': content,
+      'target_user_id': targetUserId,
+      'store_id': storeId,
+      'product_id': productId,
       'is_read': 0,
-      'created_at': n.createdAt.toIso8601String(),
+      'created_at': DateTime.now().toIso8601String(),
     });
   }
 
