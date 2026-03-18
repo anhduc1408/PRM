@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../core/constants/app_colors.dart';
-import '../core/constants/enums.dart';
 import '../data/database_service.dart';
 import '../core/utils/format_utils.dart';
 
 class RevenueChart extends StatelessWidget {
   final List<ChartEntry> data;
-  final PeriodFilter period;
+  final int days;
 
-  const RevenueChart({super.key, required this.data, required this.period});
+  const RevenueChart({super.key, required this.data, required this.days});
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +21,17 @@ class RevenueChart extends StatelessWidget {
     }
 
     final maxValue = data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    final showEvery = period == PeriodFilter.month ? 5 : 1;
+    
+    // Adjust visual density based on how many bars we have
+    int showEvery = 1;
+    double barWidth = 18;
+    if (data.length > 20) {
+      showEvery = 5;
+      barWidth = 6;
+    } else if (data.length > 10) {
+      showEvery = 2;
+      barWidth = 10;
+    }
 
     return SizedBox(
       height: 220,
@@ -48,9 +57,17 @@ class RevenueChart extends StatelessWidget {
                   final idx = value.toInt();
                   if (idx >= data.length) return const SizedBox();
                   if (idx % showEvery != 0) return const SizedBox();
+                  
+                  // For very long labels like '2024-03-12', take just '12/03'
+                  String label = data[idx].label;
+                  if (label.length == 10 && label.contains('-')) { // YYYY-MM-DD
+                    final parts = label.split('-');
+                    label = '${parts[2]}/${parts[1]}';
+                  }
+
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text(data[idx].label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                    child: Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
                   );
                 },
               ),
@@ -84,7 +101,7 @@ class RevenueChart extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
-                width: period == PeriodFilter.month ? 6 : 18,
+                width: barWidth,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
               ),
             ],
