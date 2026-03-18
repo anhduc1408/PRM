@@ -231,7 +231,7 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
         children: [
           const Text('Biểu đồ doanh thu', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
-          RevenueChart(data: d.chartData, period: _period),
+          RevenueChart(data: d.chartData, days: _period == PeriodFilter.day ? 1 : (_period == PeriodFilter.week ? 7 : 30)),
         ],
       ),
     );

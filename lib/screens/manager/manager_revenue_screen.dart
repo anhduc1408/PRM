@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/enums.dart';
 import '../../core/providers/auth_provider.dart';
-import '../../core/providers/store_provider.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/database_service.dart';
 import '../../models/order_model.dart';
 import '../../models/product_model.dart';
-import '../../widgets/period_filter_tabs.dart';
 import '../../widgets/revenue_chart.dart';
 import '../../widgets/stat_card.dart';
 import '../../widgets/product_rank_list.dart';
@@ -20,12 +17,16 @@ class ManagerRevenueScreen extends StatefulWidget {
 }
 
 class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
-  PeriodFilter _period = PeriodFilter.day;
+  DateTime? _startDate;
+  DateTime? _endDate;
   late Future<_RevenueData> _dataFuture;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _startDate = DateTime(now.year, now.month, 1);
+    _endDate = DateTime(now.year, now.month, now.day);
     _dataFuture = _fetch();
   }
 
@@ -36,12 +37,20 @@ class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
 
   Future<_RevenueData> _fetch() async {
     final auth = context.read<AuthProvider>();
-    final provider = context.read<StoreProvider>();
     final storeId = auth.currentUser?.storeId;
 
-    final orders = await provider.getOrdersByPeriod(storeId, _period);
-    final chartData = await provider.getChartData(storeId, _period);
-    final topProducts = await provider.getTopProducts(storeId, _period, limit: 5);
+    final now = DateTime.now();
+    DateTime from = _startDate ?? DateTime(now.year, now.month, 1);
+    DateTime to = _endDate ?? DateTime(now.year, now.month, now.day);
+    to = DateTime(to.year, to.month, to.day).add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+
+    final orders = await DatabaseService.instance.getSalesOrders(
+      storeId: storeId, from: from, to: to,
+    );
+    final chartData = await DatabaseService.instance.getRevenueChartDataByDateRange(storeId, from, to);
+    final topProducts = await DatabaseService.instance.getTopProducts(
+      storeId: storeId, from: from, to: to, limit: 5,
+    );
 
     final revenue = orders.fold<double>(0, (s, o) => s + o.finalAmount);
     final cashOrders = orders.where(
@@ -71,24 +80,41 @@ class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
     );
   }
 
+  Future<void> _pickDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: _startDate != null && _endDate != null
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : null,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: ThemeData(colorSchemeSeed: AppColors.primary),
+        child: child!,
+      ),
+    );
+    
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+      _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // Header
+          // Web-like Header
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
-              color: AppColors.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x0A000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
-                ),
-              ],
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: AppColors.divider)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -96,29 +122,40 @@ class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Báo cáo doanh thu',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
+                    const Text('Báo cáo doanh thu', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
                     Text(
-                      _getPeriodLabel(),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                      'Xem hiệu suất bán hàng của cửa hàng',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    )
                   ],
                 ),
-                PeriodFilterTabs(
-                  selected: _period,
-                  onChanged: (p) {
-                    setState(() => _period = p);
-                    _load();
-                  },
+                InkWell(
+                  onTap: _pickDateRange,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.white,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today, size: 18, color: AppColors.textSecondary),
+                        const SizedBox(width: 8),
+                        Text(
+                          _startDate != null && _endDate != null 
+                             ? '${FormatUtils.formatDate(_startDate!)} - ${FormatUtils.formatDate(_endDate!)}'
+                             : 'Chọn ngày',
+                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -134,227 +171,133 @@ class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
                   return Center(child: Text('Lỗi: ${snap.error}'));
                 }
                 final d = snap.data!;
+                final daysCount = _endDate != null && _startDate != null ? _endDate!.difference(_startDate!).inDays + 1 : 30;
+
                 return RefreshIndicator(
                   onRefresh: () async => _load(),
                   color: const Color(0xFF1A237E),
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Total Revenue Banner
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1A237E), Color(0xFF283593)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF1A237E).withValues(alpha: 0.3),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Icon(Icons.attach_money, color: Colors.white70, size: 16),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Tổng doanh thu',
-                                    style: TextStyle(color: Colors.white70, fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                FormatUtils.formatCurrency(d.revenue),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -1,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  _RevenuePill(
-                                    label: '${d.orders.length} đơn hàng',
-                                    icon: Icons.receipt_long,
-                                    color: Colors.white30,
-                                    textColor: Colors.white,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _RevenuePill(
-                                    label: 'TB: ${FormatUtils.formatCurrency(d.avgOrder)}',
-                                    icon: Icons.trending_up,
-                                    color: Colors.white30,
-                                    textColor: Colors.white,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
                         // Stat cards
                         LayoutBuilder(
                           builder: (ctx, c) {
-                            final cols = c.maxWidth > 700 ? 4 : 2;
+                            final cols = c.maxWidth > 800 ? 5 : 2;
                             return GridView.count(
                               crossAxisCount: cols,
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 1.3,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              childAspectRatio: 1.5,
                               children: [
-                                StatCard(
-                                  title: 'Tiền mặt',
-                                  value: FormatUtils.formatCurrency(d.cash),
-                                  icon: Icons.payments,
-                                  color: AppColors.success,
-                                  subtitle: '${d.cashOrderCount} đơn',
+                                _WebStatCard(
+                                   title: 'Tổng doanh thu', 
+                                   value: FormatUtils.formatCurrency(d.revenue), 
+                                   subtitle: '${d.orders.length} đơn', 
+                                   icon: Icons.attach_money,
+                                   color: AppColors.primary
                                 ),
-                                StatCard(
-                                  title: 'Chuyển khoản',
-                                  value: FormatUtils.formatCurrency(d.transfer),
-                                  icon: Icons.account_balance,
-                                  color: AppColors.info,
-                                  subtitle: '${d.transferOrderCount} đơn',
+                                _WebStatCard(
+                                   title: 'Trung bình/đơn', 
+                                   value: FormatUtils.formatCurrency(d.avgOrder), 
+                                   subtitle: 'N/A', 
+                                   icon: Icons.functions,
+                                   color: AppColors.info
                                 ),
-                                StatCard(
-                                  title: 'Số đơn',
-                                  value: '${d.orders.length}',
-                                  icon: Icons.receipt_long,
-                                  color: AppColors.warning,
+                                _WebStatCard(
+                                   title: 'Tiền mặt', 
+                                   value: FormatUtils.formatCurrency(d.cash), 
+                                   subtitle: '${d.cashOrderCount} đơn', 
+                                   icon: Icons.money,
+                                   color: AppColors.success
                                 ),
-                                StatCard(
-                                  title: 'Trung bình/đơn',
-                                  value: FormatUtils.formatCurrency(d.avgOrder),
-                                  icon: Icons.bar_chart,
-                                  color: AppColors.primary,
+                                _WebStatCard(
+                                   title: 'Chuyển khoản', 
+                                   value: FormatUtils.formatCurrency(d.transfer), 
+                                   subtitle: '${d.transferOrderCount} đơn', 
+                                   icon: Icons.account_balance,
+                                   color: AppColors.warning
                                 ),
                               ],
                             );
                           },
                         ),
-
-                        const SizedBox(height: 20),
-
-                        // Revenue Chart
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.06),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
+                        const SizedBox(height: 24),
+                        
+                        Row(
+                           crossAxisAlignment: CrossAxisAlignment.start,
+                           children: [
+                              // Chart
+                              Expanded(
+                                 flex: 2,
+                                 child: Card(
+                                    color: Colors.white,
+                                    margin: EdgeInsets.zero,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: AppColors.border)),
+                                    child: Padding(
+                                       padding: const EdgeInsets.all(20),
+                                       child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                             const Text('Biểu đồ doanh thu', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                             const SizedBox(height: 24),
+                                             RevenueChart(data: d.chartData, days: daysCount),
+                                          ]
+                                       )
+                                    )
+                                 )
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF1A237E).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(
-                                      Icons.show_chart,
-                                      color: Color(0xFF1A237E),
-                                      size: 18,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Text(
-                                    'Biểu đồ doanh thu',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              RevenueChart(data: d.chartData, period: _period),
-                            ],
-                          ),
+                              const SizedBox(width: 24),
+                              
+                              // Top products
+                              Expanded(
+                                 flex: 1,
+                                 child: Card(
+                                    color: Colors.white,
+                                    margin: EdgeInsets.zero,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: AppColors.border)),
+                                    child: Padding(
+                                       padding: const EdgeInsets.all(20),
+                                       child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                             const Text('Top sản phẩm', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                             const SizedBox(height: 16),
+                                             ProductRankList(products: d.topProducts),
+                                          ]
+                                       )
+                                    )
+                                 )
+                              )
+                           ]
                         ),
-
-                        const SizedBox(height: 20),
-
-                        // Top products
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.06),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.warning.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(
-                                      Icons.emoji_events,
-                                      color: AppColors.warning,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Text(
-                                    'Top sản phẩm bán chạy',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              ProductRankList(products: d.topProducts),
-                            ],
-                          ),
-                        ),
+                        
+                        const SizedBox(height: 24),
 
                         // Order breakdown by staff
-                        const SizedBox(height: 20),
-                        _StaffRevenueBreakdown(orders: d.orders),
-
-                        const SizedBox(height: 20),
+                        Card(
+                           color: Colors.white,
+                           margin: EdgeInsets.zero,
+                           elevation: 0,
+                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: AppColors.border)),
+                           child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                 children: [
+                                    const Text('Hiệu suất nhân viên', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 16),
+                                    _StaffRevenueBreakdown(orders: d.orders),
+                                 ]
+                              )
+                           )
+                        )
                       ],
                     ),
                   ),
@@ -366,19 +309,55 @@ class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
       ),
     );
   }
+}
 
-  String _getPeriodLabel() {
-    final now = DateTime.now();
-    switch (_period) {
-      case PeriodFilter.day:
-        return 'Hôm nay ${now.day}/${now.month}/${now.year}';
-      case PeriodFilter.week:
-        return 'Tuần này';
-      case PeriodFilter.month:
-        return 'Tháng ${now.month}/${now.year}';
-    }
+class _WebStatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+
+  const _WebStatCard({required this.title, required this.value, required this.subtitle, required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+               Text(title, style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+               Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Icon(icon, size: 18, color: color),
+               )
+            ],
+          ),
+          Column(
+             crossAxisAlignment: CrossAxisAlignment.start,
+             children: [
+                Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+             ],
+          )
+        ],
+      ),
+    );
   }
 }
+
 
 // ─── Staff Revenue Breakdown ───────────────────────────────────────────────────
 class _StaffRevenueBreakdown extends StatelessWidget {
@@ -399,121 +378,89 @@ class _StaffRevenueBreakdown extends StatelessWidget {
     final staffList = staffMap.values.toList()
       ..sort((a, b) => b.revenue.compareTo(a.revenue));
 
-    if (staffList.isEmpty) return const SizedBox();
+    if (staffList.isEmpty) return const Text('Không có dữ liệu bán hàng cho giai đoạn này.', style: TextStyle(color: AppColors.textHint));
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      children: staffList.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final s = entry.value;
+        final maxRevenue = staffList.first.revenue;
+        final progress = maxRevenue > 0 ? s.revenue / maxRevenue : 0.0;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.people_alt, color: AppColors.success, size: 18),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Doanh thu theo nhân viên',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...staffList.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final s = entry.value;
-            final maxRevenue = staffList.first.revenue;
-            final progress = maxRevenue > 0 ? s.revenue / maxRevenue : 0.0;
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: idx == 0
-                              ? AppColors.warning
-                              : (idx == 1 ? AppColors.textSecondary : AppColors.textHint),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${idx + 1}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          s.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '${s.orderCount} đơn',
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: idx == 0
+                          ? AppColors.warning
+                          : (idx == 1 ? AppColors.textSecondary : AppColors.textHint),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                         if(idx==0) BoxShadow(color: AppColors.warning.withOpacity(0.3), blurRadius: 4, offset:const Offset(0, 2))
+                      ]
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${idx + 1}',
                         style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        FormatUtils.formatCurrency(s.revenue),
-                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          color: AppColors.primary,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: AppColors.surfaceVariant,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        idx == 0 ? AppColors.warning : AppColors.info.withValues(alpha: 0.7),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      s.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
                       ),
-                      minHeight: 6,
+                    ),
+                  ),
+                  Text(
+                    '${s.orderCount} đơn',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    FormatUtils.formatCurrency(s.revenue),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: AppColors.primary,
                     ),
                   ),
                 ],
               ),
-            );
-          }),
-        ],
-      ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: AppColors.surfaceVariant,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    idx == 0 ? AppColors.warning : AppColors.info,
+                  ),
+                  minHeight: 8,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -523,47 +470,6 @@ class _StaffRevStat {
   int orderCount = 0;
   double revenue = 0;
   _StaffRevStat({required this.name});
-}
-
-// ─── Revenue Pill ─────────────────────────────────────────────────────────────
-class _RevenuePill extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final Color textColor;
-
-  const _RevenuePill({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.textColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: textColor),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: textColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ─── Data Model ───────────────────────────────────────────────────────────────
