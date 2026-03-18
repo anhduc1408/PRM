@@ -141,7 +141,22 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
               ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true), 
+                onPressed: () async {
+                   final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                         title: const Text('Xác nhận'),
+                         content: const Text('Bạn có chắc chắn muốn lưu ca làm này?'),
+                         actions: [
+                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Hủy')),
+                            ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('Đồng ý')),
+                         ]
+                      )
+                   );
+                   if (confirm == true) {
+                      Navigator.pop(ctx, true);
+                   }
+                }, 
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
                 child: const Text('Lưu ca làm')
               ),
@@ -229,10 +244,22 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
                ElevatedButton(
                  onPressed: toMarkIds.isEmpty ? null : () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: const Text('Xác nhận'),
+                        content: const Text('Bạn có chắc chắn muốn xác nhận nghỉ các ca này?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Hủy')),
+                          ElevatedButton(onPressed: () => Navigator.pop(c, true), style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white), child: const Text('Xác nhận nghỉ')),
+                        ]
+                      )
+                    );
+                    if (confirm != true) return;
                     for (var id in toMarkIds) {
                        await DatabaseService.instance.updateShiftAssignmentStatus(id, 'absent');
                     }
-                    Navigator.pop(ctx);
+                    if (context.mounted) Navigator.pop(ctx);
                  }, 
                  child: const Text('Xác nhận nghỉ')
                ),
@@ -510,13 +537,13 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
                                       final s = data.shifts.firstWhere((sh) => sh.id == a.shiftId, orElse: () => WorkShiftModel(id:0, name:'Unk', startTime:'', endTime:'', status:'', createdAt: DateTime.now(), updatedAt: DateTime.now()));
                                       final isAbsent = a.status == 'absent';
                                       return Container(
-                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                          decoration: BoxDecoration(
-                                            color: isAbsent ? AppColors.errorLight : AppColors.primaryLight,
+                                            color: isAbsent ? AppColors.errorLight : Colors.blue.shade50,
                                             borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: isAbsent ? AppColors.error : AppColors.primary, width: 0.5)
+                                            border: Border.all(color: isAbsent ? AppColors.error : Colors.blue, width: 0.5)
                                          ),
-                                         child: Text(s.name, style: TextStyle(fontSize: 10, color: isAbsent ? AppColors.error : AppColors.primary, fontWeight: FontWeight.bold)),
+                                         child: Text(isAbsent ? 'Nghỉ làm' : s.name, style: TextStyle(fontSize: 12, color: isAbsent ? AppColors.error : Colors.blue.shade700, fontWeight: FontWeight.bold)),
                                       );
                                    }).toList()
                                )

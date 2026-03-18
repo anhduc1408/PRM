@@ -111,7 +111,7 @@ class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
         children: [
           // Web-like Header
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(8),
             decoration: const BoxDecoration(
               color: Colors.white,
               border: Border(bottom: BorderSide(color: AppColors.divider)),
@@ -178,7 +178,7 @@ class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
                   color: const Color(0xFF1A237E),
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [

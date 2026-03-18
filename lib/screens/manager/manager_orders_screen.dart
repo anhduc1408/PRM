@@ -113,7 +113,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
 
              // A web-like Card containing filters and table
              content = Card(
-               margin: const EdgeInsets.all(24),
+               margin: const EdgeInsets.all(8),
                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                elevation: 2,
                color: Colors.white,
@@ -123,27 +123,26 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                    // Filter Bar
                    Padding(
                      padding: const EdgeInsets.all(16),
-                     child: Wrap(
-                       spacing: 16,
-                       runSpacing: 16,
-                       crossAxisAlignment: WrapCrossAlignment.center,
+                     child: Row(
                        children: [
                          // Date Range Filter
-                         OutlinedButton.icon(
-                           icon: const Icon(Icons.date_range),
-                           label: Text(
-                             _startDate != null && _endDate != null
-                                 ? '${FormatUtils.formatDate(_startDate!)} - ${FormatUtils.formatDate(_endDate!)}'
-                                 : 'Chọn ngày',
-                           ),
-                           onPressed: _pickDateRange,
-                           style: OutlinedButton.styleFrom(
-                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                         Expanded(
+                           child: OutlinedButton.icon(
+                             icon: const Icon(Icons.date_range),
+                             label: Text(
+                               _startDate != null && _endDate != null
+                                   ? '${FormatUtils.formatDate(_startDate!)} - ${FormatUtils.formatDate(_endDate!)}'
+                                   : 'Chọn ngày',
+                             ),
+                             onPressed: _pickDateRange,
+                             style: OutlinedButton.styleFrom(
+                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                             ),
                            ),
                          ),
+                         const SizedBox(width: 16),
                          // Payment Filter
-                         SizedBox(
-                           width: 200,
+                         Expanded(
                            child: DropdownButtonFormField<String?>(
                              value: _filterPayment,
                              decoration: const InputDecoration(
@@ -159,37 +158,39 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                              onChanged: (v) { setState(() { _filterPayment = v; _currentPage = 1; }); },
                            ),
                          ),
+                         const SizedBox(width: 16),
                          // Staff Filter
-                         if (data.staffNames.isNotEmpty)
-                           SizedBox(
-                             width: 200,
-                             child: DropdownButtonFormField<String?>(
-                               value: _filterStaff,
-                               decoration: const InputDecoration(
-                                 labelText: 'Nhân viên',
-                                 border: OutlineInputBorder(),
-                                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                               ),
-                               items: [
-                                 const DropdownMenuItem(value: null, child: Text('Tất cả')),
-                                 ...data.staffNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
-                               ],
-                               onChanged: (v) => setState(() { _filterStaff = v; _currentPage = 1; }),
+                         Expanded(
+                           child: data.staffNames.isNotEmpty ? DropdownButtonFormField<String?>(
+                             value: _filterStaff,
+                             decoration: const InputDecoration(
+                               labelText: 'Nhân viên',
+                               border: OutlineInputBorder(),
+                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                              ),
-                           ),
-                         // Summary Widgets
-                         Container(
-                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                           decoration: BoxDecoration(
-                             color: AppColors.successLight.withAlpha(50),
-                             borderRadius: BorderRadius.circular(8),
-                           ),
-                           child: Column(
-                             crossAxisAlignment: CrossAxisAlignment.end,
-                             children: [
-                               Text('Tổng số đơn: ${filtered.length}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                               Text('Tổng doanh thu: ${FormatUtils.formatCurrency(totalRevenue)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 16)),
+                             items: [
+                               const DropdownMenuItem(value: null, child: Text('Tất cả')),
+                               ...data.staffNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
                              ],
+                             onChanged: (v) => setState(() { _filterStaff = v; _currentPage = 1; }),
+                           ) : const SizedBox.shrink(),
+                         ),
+                         const SizedBox(width: 16),
+                         // Summary Widgets
+                         Expanded(
+                           child: Container(
+                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                             decoration: BoxDecoration(
+                               color: AppColors.successLight.withAlpha(50),
+                               borderRadius: BorderRadius.circular(8),
+                             ),
+                             child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.end,
+                               children: [
+                                 Text('Tổng số đơn: ${filtered.length}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                 Text('Doanh thu: ${FormatUtils.formatCurrency(totalRevenue)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 16)),
+                               ],
+                             ),
                            ),
                          ),
                        ],
@@ -278,7 +279,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
              crossAxisAlignment: CrossAxisAlignment.stretch,
              children: [
                Container(
-                 padding: const EdgeInsets.all(24),
+                 padding: const EdgeInsets.all(8),
                  color: Colors.white,
                  child: const Text('Lịch sử đơn hàng', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                ),
