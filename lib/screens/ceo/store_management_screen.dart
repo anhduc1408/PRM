@@ -138,7 +138,7 @@ class _StoreCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(store.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  child: Text(store.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -150,13 +150,13 @@ class _StoreCard extends StatelessWidget {
                     store.status == 'active' ? 'Hoạt động' : 'Tạm đóng',
                     style: TextStyle(
                       color: store.status == 'active' ? AppColors.success : AppColors.error,
-                      fontSize: 11, fontWeight: FontWeight.w600,
+                      fontSize: 13, fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ],
             ),
-            Text(store.address ?? store.code, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+            Text(store.address ?? store.code, style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -164,17 +164,17 @@ class _StoreCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Doanh thu', style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
+                      Text('Doanh thu', style: const TextStyle(color: AppColors.textHint, fontSize: 12)),
                       Text(FormatUtils.formatCurrency(metric.revenue),
-                          style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 14)),
+                          style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 16)),
                     ],
                   ),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('Đơn hàng', style: TextStyle(color: AppColors.textHint, fontSize: 11)),
-                    Text('${metric.orderCount}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    const Text('Đơn hàng', style: TextStyle(color: AppColors.textHint, fontSize: 12)),
+                    Text('${metric.orderCount}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
                   ],
                 ),
               ],
@@ -183,16 +183,16 @@ class _StoreCard extends StatelessWidget {
               const SizedBox(height: 12),
               const Divider(),
               const SizedBox(height: 6),
-              const Text('Top sản phẩm:', style: TextStyle(fontSize: 11, color: AppColors.textHint)),
+              const Text('Top sản phẩm:', style: TextStyle(fontSize: 13, color: AppColors.textHint)),
               const SizedBox(height: 4),
               ...metric.topProducts.take(2).map((p) => Padding(
-                padding: const EdgeInsets.only(bottom: 2),
+                padding: const EdgeInsets.only(bottom: 3),
                 child: Row(
                   children: [
-                    const Text('🔥', style: TextStyle(fontSize: 11)),
+                    const Text('🔥', style: TextStyle(fontSize: 13)),
                     const SizedBox(width: 4),
-                    Expanded(child: Text(p.productName, style: const TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    Text('×${p.quantity}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                    Expanded(child: Text(p.productName, style: const TextStyle(fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    Text('×${p.quantity}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
                   ],
                 ),
               )),
@@ -201,7 +201,7 @@ class _StoreCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text('Xem chi tiết →', style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                Text('Xem chi tiết →', style: const TextStyle(color: AppColors.primary, fontSize: 14, fontWeight: FontWeight.w600)),
               ],
             ),
           ],

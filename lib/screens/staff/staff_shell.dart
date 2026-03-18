@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../data/database_service.dart';
+import '../../widgets/notification_bell.dart';
 
 class StaffShell extends StatefulWidget {
   final Widget child;
@@ -87,6 +88,7 @@ class _StaffShellState extends State<StaffShell> {
           ],
         ),
         actions: [
+          const NotificationBell(),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {

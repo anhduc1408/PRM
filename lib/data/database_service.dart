@@ -431,6 +431,138 @@ class DatabaseService {
     });
     await db.insert('stock_transfer_items', {'transfer_id': t3Id, 'product_id': 3, 'estimate_quantity': 40, 'actual_quantity': 38});
     await db.insert('stock_transfer_items', {'transfer_id': t3Id, 'product_id': 6, 'estimate_quantity': 20, 'actual_quantity': 20});
+
+    // ─── Seed Notifications ───────────────────────────────────────────────────
+    // User IDs: 1=ceo, 2=it, 3=staff1(Q1), 4=staff2(Q3), 5=manager1(Q1), 6=checker1(Q1), 7=staff3, 8=staff4, 9=staff5
+    // Store IDs: 1=Q1, 2=Q3, 3=Bình Thạnh
+
+    final n1 = DateTime.now().subtract(const Duration(days: 7));
+    final n2 = DateTime.now().subtract(const Duration(days: 5));
+    final n3 = DateTime.now().subtract(const Duration(days: 3));
+    final n4 = DateTime.now().subtract(const Duration(days: 2));
+    final n5 = DateTime.now().subtract(const Duration(hours: 20));
+    final n6 = DateTime.now().subtract(const Duration(hours: 10));
+    final n7 = DateTime.now().subtract(const Duration(hours: 5));
+    final n8 = DateTime.now().subtract(const Duration(hours: 2));
+    final n9 = DateTime.now().subtract(const Duration(minutes: 45));
+    final n10 = DateTime.now().subtract(const Duration(minutes: 10));
+
+    // --- Thông báo hệ thống (system) ---
+    await db.insert('notifications', {
+      'type': 'system', 'title': 'Tài khoản của bạn đã được tạo',
+      'content': 'Chào mừng Nguyễn Văn An! Vai trò: Nhân viên tại Mixue Quận 1. Tên đăng nhập: staff1. Mật khẩu: 123456',
+      'target_user_id': 3, 'store_id': 1, 'is_read': 1, 'created_at': n1.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'system', 'title': 'Tài khoản của bạn đã được tạo',
+      'content': 'Chào mừng Trần Thị Bình! Vai trò: Nhân viên tại Mixue Quận 3. Tên đăng nhập: staff2. Mật khẩu: 123456',
+      'target_user_id': 4, 'store_id': 2, 'is_read': 1, 'created_at': n1.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'system', 'title': 'Tài khoản của bạn đã được tạo',
+      'content': 'Chào mừng Lê Quản Lý! Vai trò: Quản lý cửa hàng tại Mixue Quận 1. Tên đăng nhập: manager1. Mật khẩu: 123456',
+      'target_user_id': 5, 'store_id': 1, 'is_read': 1, 'created_at': n1.toIso8601String(),
+    });
+
+    // --- Thông báo cập nhật vai trò (role_update) ---
+    await db.insert('notifications', {
+      'type': 'role_update', 'title': 'Thông tin tài khoản của bạn đã được cập nhật',
+      'content': 'IT Admin đã thay đổi: Cửa hàng: Không có cửa hàng → Mixue Quận 1',
+      'target_user_id': 3, 'store_id': 1, 'is_read': 1, 'created_at': n2.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'role_update', 'title': 'Nhân viên mới được thêm vào cửa hàng của bạn',
+      'content': 'Nguyễn Văn An (Nhân viên) đã được thêm vào Mixue Quận 1',
+      'target_user_id': 5, 'store_id': 1, 'is_read': 1, 'created_at': n2.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'role_update', 'title': 'Thông tin tài khoản của bạn đã được cập nhật',
+      'content': 'IT Admin đã thay đổi: Vai trò: Nhân viên → Kiểm kho',
+      'target_user_id': 6, 'store_id': 1, 'is_read': 0, 'created_at': n3.toIso8601String(),
+    });
+
+    // --- Thông báo reset mật khẩu ---
+    await db.insert('notifications', {
+      'type': 'system', 'title': 'Mật khẩu của bạn đã được đặt lại',
+      'content': 'IT Admin đã reset mật khẩu của bạn về 123456. Vui lòng đổi mật khẩu sau khi đăng nhập.',
+      'target_user_id': 7, 'is_read': 1, 'created_at': n3.toIso8601String(),
+    });
+
+    // --- Thông báo sắp hết hàng (low_stock) ---
+    await db.insert('notifications', {
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Kem Que Mix',
+      'content': 'Kem Que Mix tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 12',
+      'target_user_id': 5, 'store_id': 1, 'product_id': 1, 'is_read': 0, 'created_at': n4.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Kem Que Mix',
+      'content': 'Kem Que Mix tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 12',
+      'target_user_id': 6, 'store_id': 1, 'product_id': 1, 'is_read': 0, 'created_at': n4.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Trà Xanh Matcha',
+      'content': 'Trà Xanh Matcha tại Mixue Quận 3 sắp hết hàng. Số lượng còn lại: 8',
+      'target_user_id': 6, 'store_id': 2, 'product_id': 6, 'is_read': 1, 'created_at': n4.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Cà Phê Sữa',
+      'content': 'Cà Phê Sữa tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 5',
+      'target_user_id': 5, 'store_id': 1, 'product_id': 7, 'is_read': 0, 'created_at': n5.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Cà Phê Sữa',
+      'content': 'Cà Phê Sữa tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 5',
+      'target_user_id': 6, 'store_id': 1, 'product_id': 7, 'is_read': 0, 'created_at': n5.toIso8601String(),
+    });
+
+    // --- Thông báo chuyển kho (transfer) ---
+    await db.insert('notifications', {
+      'type': 'transfer', 'title': 'Phiếu chuyển kho mới cần duyệt',
+      'content': 'Phiếu chuyển kho từ Kho Tổng → Kho Quận 1 đang chờ xác nhận. 3 sản phẩm, ~100 đơn vị.',
+      'target_user_id': 5, 'store_id': 1, 'is_read': 0, 'created_at': n6.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'transfer', 'title': 'Hàng đã được gửi đến kho của bạn',
+      'content': 'Phiếu chuyển kho đang vận chuyển: Kho Tổng → Kho Quận 1. Dự kiến 3 sản phẩm.',
+      'target_user_id': 6, 'store_id': 1, 'is_read': 1, 'created_at': n6.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'transfer', 'title': 'Xác nhận nhận hàng thành công',
+      'content': 'Đã nhận hàng từ Kho Tổng. Kem Socola: 38/40 đơn vị, Trà Xanh Matcha: 20/20 đơn vị.',
+      'target_user_id': 6, 'store_id': 1, 'is_read': 1, 'created_at': n7.toIso8601String(),
+    });
+
+    // --- Thông báo mới nhất (chưa đọc) ---
+    await db.insert('notifications', {
+      'type': 'role_update', 'title': 'Thông tin tài khoản của bạn đã được cập nhật',
+      'content': 'IT Admin đã thay đổi: Cửa hàng: Mixue Quận 1 → Mixue Quận 3',
+      'target_user_id': 8, 'store_id': 2, 'is_read': 0, 'created_at': n8.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'role_update', 'title': 'Nhân viên mới được thêm vào cửa hàng của bạn',
+      'content': 'Đinh Thị Dung (Nhân viên) đã được thêm vào Mixue Quận 3',
+      'target_user_id': 5, 'store_id': 2, 'is_read': 0, 'created_at': n8.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Bánh Flan',
+      'content': 'Bánh Flan tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 3',
+      'target_user_id': 5, 'store_id': 1, 'product_id': 10, 'is_read': 0, 'created_at': n9.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Bánh Flan',
+      'content': 'Bánh Flan tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 3',
+      'target_user_id': 6, 'store_id': 1, 'product_id': 10, 'is_read': 0, 'created_at': n9.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'system', 'title': 'Hệ thống bảo trì định kỳ',
+      'content': 'Hệ thống sẽ bảo trì vào 23:00 tối nay (18/03/2026). Thời gian dự kiến: 30 phút.',
+      'target_user_id': 1, 'is_read': 0, 'created_at': n10.toIso8601String(),
+    });
+    await db.insert('notifications', {
+      'type': 'system', 'title': 'Hệ thống bảo trì định kỳ',
+      'content': 'Hệ thống sẽ bảo trì vào 23:00 tối nay (18/03/2026). Thời gian dự kiến: 30 phút.',
+      'target_user_id': 2, 'is_read': 0, 'created_at': n10.toIso8601String(),
+    });
   }
 
   // ─── USER QUERIES ─────────────────────────────────────────────────────────
