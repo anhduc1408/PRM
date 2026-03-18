@@ -58,6 +58,9 @@ class CeoShell extends StatelessWidget {
                 case 1:
                   context.go('/ceo/stores');
                   break;
+                case 2:
+                  context.go('/ceo/employees');
+                  break;
               }
             },
             labelType: NavigationRailLabelType.all,
@@ -77,6 +80,11 @@ class CeoShell extends StatelessWidget {
                 selectedIcon: Icon(Icons.store),
                 label: Text('Cửa hàng'),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.group_outlined),
+                selectedIcon: Icon(Icons.group),
+                label: Text('Nhân viên'),
+              ),
             ],
           ),
           Expanded(child: child),
@@ -87,6 +95,7 @@ class CeoShell extends StatelessWidget {
 
   int _selectedIndex(String route) {
     if (route.startsWith('/ceo/store')) return 1;
+    if (route.startsWith('/ceo/employee')) return 2;
     return 0;
   }
 }

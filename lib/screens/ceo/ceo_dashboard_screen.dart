@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/enums.dart';
 import '../../core/providers/store_provider.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/database_service.dart';
 import '../../models/order_model.dart';
 import '../../models/product_model.dart';
 import '../../models/store_model.dart';
-import '../../widgets/period_filter_tabs.dart';
+import '../../widgets/date_range_filter.dart';
 import '../../widgets/product_rank_list.dart';
 import '../../widgets/revenue_chart.dart';
 import '../../widgets/stat_card.dart';
+import '../../core/constants/enums.dart';
 
 class CeoDashboardScreen extends StatefulWidget {
   const CeoDashboardScreen({super.key});
@@ -21,12 +21,16 @@ class CeoDashboardScreen extends StatefulWidget {
 }
 
 class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
-  PeriodFilter _period = PeriodFilter.month;
+  late DateTime _fromDate;
+  late DateTime _toDate;
   late Future<_DashboardData> _dataFuture;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _fromDate = DateTime(now.year, now.month, 1);
+    _toDate   = now;
     _loadData();
   }
 
@@ -37,16 +41,37 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
   Future<_DashboardData> _fetchData() async {
     final provider = context.read<StoreProvider>();
     final stores = await provider.getAllStores();
-    final orders = await provider.getOrdersByPeriod(null, _period);
-    final chartData = await provider.getChartData(null, _period);
-    final topProducts = await provider.getTopProducts(null, _period, limit: 5);
+
+    final toEnd = DateTime(_toDate.year, _toDate.month, _toDate.day, 23, 59, 59);
+    final orders = await DatabaseService.instance.getSalesOrders(
+      from: _fromDate,
+      to: toEnd,
+    );
+
+    // Build chart data manually from date range
+    final chartData = _buildChartData(orders, _fromDate, _toDate);
+
+    // Top products from orders
+    final productQty = <int, int>{};
+    final productName = <int, String>{};
+    for (final o in orders) {
+      for (final item in o.items) {
+        productQty[item.productId] = (productQty[item.productId] ?? 0) + item.quantity;
+        productName[item.productId] = item.productName ?? '';
+      }
+    }
+    final topProducts = productQty.entries
+        .map((e) => ProductSaleModel(productId: e.key, productName: productName[e.key] ?? '', quantity: e.value, totalRevenue: 0))
+        .toList()
+      ..sort((a, b) => b.quantity.compareTo(a.quantity));
+    final top5 = topProducts.take(5).toList();
 
     final totalRevenue = orders.fold<double>(0, (s, o) => s + o.finalAmount);
-    final cashRevenue = orders.fold<double>(0, (s, o) => s + o.payments.where((p) => p.paymentMethod == 'cash').fold<double>(0, (ps, p) => ps + p.amount));
+    final cashRevenue = orders.fold<double>(0, (s, o) =>
+        s + o.payments.where((p) => p.paymentMethod == 'cash').fold<double>(0, (ps, p) => ps + p.amount));
     final transferRevenue = totalRevenue - cashRevenue;
     final activeStores = stores.where((s) => s.status == 'active').length;
 
-    // Per-store revenue
     final storeRevenues = <StoreModel, double>{};
     for (final store in stores) {
       final storeOrders = orders.where((o) => o.storeId == store.id);
@@ -57,13 +82,61 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
       stores: stores,
       orders: orders,
       chartData: chartData,
-      topProducts: topProducts,
+      topProducts: top5,
       totalRevenue: totalRevenue,
       cashRevenue: cashRevenue,
       transferRevenue: transferRevenue,
       activeStores: activeStores,
       storeRevenues: storeRevenues,
     );
+  }
+
+  List<ChartEntry> _buildChartData(List<SalesOrderModel> orders, DateTime from, DateTime to) {
+    final days = to.difference(from).inDays;
+    if (days <= 1) {
+      // Hourly grouping
+      final hourMap = <int, double>{};
+      for (final o in orders) {
+        final h = o.orderDate.hour;
+        hourMap[h] = (hourMap[h] ?? 0) + o.finalAmount;
+      }
+      return List.generate(16, (i) {
+        final h = i + 7;
+        return ChartEntry(label: '${h}h', value: (hourMap[h] ?? 0));
+      });
+    } else if (days <= 31) {
+      // Daily grouping
+      final dayMap = <String, double>{};
+      for (final o in orders) {
+        final key = '${o.orderDate.day}/${o.orderDate.month}';
+        dayMap[key] = (dayMap[key] ?? 0) + o.finalAmount;
+      }
+      // Generate each day in range
+      final result = <ChartEntry>[];
+      for (int i = 0; i <= days && result.length <= 31; i++) {
+        final d = from.add(Duration(days: i));
+        if (d.isAfter(to)) break;
+        final key = '${d.day}/${d.month}';
+        result.add(ChartEntry(label: '${d.day}', value: dayMap[key] ?? 0));
+      }
+      return result;
+    } else {
+      // Weekly grouping
+      final weekMap = <String, double>{};
+      for (final o in orders) {
+        final weekStart = o.orderDate.subtract(Duration(days: o.orderDate.weekday - 1));
+        final key = '${weekStart.day}/${weekStart.month}';
+        weekMap[key] = (weekMap[key] ?? 0) + o.finalAmount;
+      }
+      return weekMap.entries.map((e) => ChartEntry(label: e.key, value: e.value)).toList();
+    }
+  }
+
+  String _rangeLabel() {
+    final from = FormatUtils.formatDate(_fromDate);
+    final to = FormatUtils.formatDate(_toDate);
+    if (from == to) return from;
+    return '$from → $to';
   }
 
   @override
@@ -84,20 +157,18 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
                   children: [
                     Text('Tổng quan chuỗi Mixue',
                         style: Theme.of(context).textTheme.headlineMedium),
-                    Text(_period == PeriodFilter.day
-                        ? 'Hôm nay, ${FormatUtils.formatDate(DateTime.now())}'
-                        : _period == PeriodFilter.week
-                            ? 'Tuần này'
-                            : 'Tháng ${DateTime.now().month}/${DateTime.now().year}',
+                    Text(_rangeLabel(),
                         style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                   ],
                 ),
                 Row(
                   children: [
-                    PeriodFilterTabs(
-                      selected: _period,
-                      onChanged: (p) => setState(() {
-                        _period = p;
+                    DateRangeFilterBar(
+                      initialFrom: _fromDate,
+                      initialTo: _toDate,
+                      onChanged: (range) => setState(() {
+                        _fromDate = range.start;
+                        _toDate = range.end;
                         _loadData();
                       }),
                     ),
@@ -229,7 +300,13 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Biểu đồ doanh thu', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          Row(
+            children: [
+              const Text('Biểu đồ doanh thu', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              Text(_rangeLabel(), style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+            ],
+          ),
           const SizedBox(height: 16),
           RevenueChart(data: d.chartData, days: _period == PeriodFilter.day ? 1 : (_period == PeriodFilter.week ? 7 : 30)),
         ],

@@ -10,6 +10,7 @@ import '../../screens/shared/notification_screen.dart';
 
 // CEO
 import '../../screens/ceo/ceo_dashboard_screen.dart';
+import '../../screens/ceo/ceo_employee_screen.dart';
 import '../../screens/ceo/store_management_screen.dart';
 import '../../screens/ceo/store_detail_screen.dart';
 
@@ -99,6 +100,10 @@ class AppRouter {
               builder: (context, state) => StoreDetailScreen(
                 storeId: state.pathParameters['storeId']!,
               ),
+            ),
+            GoRoute(
+              path: '/ceo/employees',
+              builder: (context, state) => const CeoEmployeeScreen(),
             ),
           ],
         ),
