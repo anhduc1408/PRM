@@ -4,6 +4,7 @@ class WarehouseInventoryModel {
   final int productId;
   int quantity;
   int minQuantity;
+  DateTime? expiryDate;
   final DateTime updatedAt;
 
   // For display — joined
@@ -17,6 +18,7 @@ class WarehouseInventoryModel {
     required this.productId,
     required this.quantity,
     required this.minQuantity,
+    this.expiryDate,
     required this.updatedAt,
     this.productName,
     this.warehouseName,

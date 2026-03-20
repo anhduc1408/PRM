@@ -1,3 +1,4 @@
+// src/screens/manager/manager_inventory_screen
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
@@ -5,6 +6,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../data/database_service.dart';
 import '../../models/warehouse_inventory_model.dart';
 import '../../models/warehouse_model.dart';
+import '../../core/utils/format_utils.dart';
 
 class ManagerInventoryScreen extends StatefulWidget {
   const ManagerInventoryScreen({super.key});
@@ -192,6 +194,7 @@ class _ManagerInventoryScreenState extends State<ManagerInventoryScreen> {
                                                       DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.bold))),
                                                       DataColumn(label: Text('Tồn kho', style: TextStyle(fontWeight: FontWeight.bold))),
                                                       DataColumn(label: Text('Định mức tối thiểu', style: TextStyle(fontWeight: FontWeight.bold))),
+                                                      DataColumn(label: Text('Hạn sử dụng', style: TextStyle(fontWeight: FontWeight.bold))),
                                                       DataColumn(label: Text('Nhập hàng lần cuối', style: TextStyle(fontWeight: FontWeight.bold))),
                                                    ],
                                                    rows: filtered.map((item) {
@@ -226,6 +229,9 @@ class _ManagerInventoryScreenState extends State<ManagerInventoryScreen> {
                                                               Text('${item.quantity}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isLow ? AppColors.error : AppColors.textPrimary))
                                                             ),
                                                             DataCell(Text('${item.minQuantity}', style: const TextStyle(color: AppColors.textSecondary))),
+                                                            DataCell(
+                                                              Text(item.expiryDate != null ? FormatUtils.formatDate(item.expiryDate!) : 'Không có', style: TextStyle(color: item.expiryDate != null && item.expiryDate!.isBefore(DateTime.now()) ? AppColors.error : AppColors.textSecondary))
+                                                            ),
                                                             DataCell(Text('${item.updatedAt.day}/${item.updatedAt.month}/${item.updatedAt.year}')),
                                                          ]
                                                       );

@@ -6,6 +6,7 @@ import '../../core/utils/format_utils.dart';
 import '../../data/database_service.dart';
 import '../../models/order_model.dart';
 import '../../models/product_model.dart';
+import '../../widgets/date_range_filter.dart';
 import '../../widgets/revenue_chart.dart';
 import '../../widgets/stat_card.dart';
 import '../../widgets/product_rank_list.dart';
@@ -80,28 +81,7 @@ class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
     );
   }
 
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      initialDateRange: _startDate != null && _endDate != null
-          ? DateTimeRange(start: _startDate!, end: _endDate!)
-          : null,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (ctx, child) => Theme(
-        data: ThemeData(colorSchemeSeed: AppColors.primary),
-        child: child!,
-      ),
-    );
-    
-    if (picked != null) {
-      setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
-      });
-      _load();
-    }
-  }
+  // Date filter logic moved inline to DateRangeFilterBar
 
   @override
   Widget build(BuildContext context) {
@@ -130,32 +110,16 @@ class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
                     )
                   ],
                 ),
-                InkWell(
-                  onTap: _pickDateRange,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(8),
-                      color: Colors.white,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.calendar_today, size: 18, color: AppColors.textSecondary),
-                        const SizedBox(width: 8),
-                        Text(
-                          _startDate != null && _endDate != null 
-                             ? '${FormatUtils.formatDate(_startDate!)} - ${FormatUtils.formatDate(_endDate!)}'
-                             : 'Chọn ngày',
-                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
-                      ],
-                    ),
-                  ),
+                DateRangeFilterBar(
+                  initialFrom: _startDate,
+                  initialTo: _endDate,
+                  onChanged: (val) {
+                    setState(() {
+                      _startDate = val.start;
+                      _endDate = val.end;
+                    });
+                    _load();
+                  },
                 ),
               ],
             ),
