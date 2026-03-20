@@ -21,7 +21,7 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
   late TabController _tabCtrl;
   final _searchCtrl = TextEditingController();
   int? _filterCategoryId;
-  bool _showInactiveOnly = false;
+  String _filterStatus = 'active'; // 'active', 'inactive', 'all'
 
   @override
   void initState() {
@@ -62,9 +62,13 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
   }
 
   List<ProductModel> _filteredProducts(List<ProductModel> products) {
-    var list = _showInactiveOnly
-        ? products.where((p) => p.status == 'inactive').toList()
-        : products.where((p) => p.status == 'active').toList();
+    var list = products;
+    if (_filterStatus == 'active') {
+      list = list.where((p) => p.status == 'active').toList();
+    } else if (_filterStatus == 'inactive') {
+      list = list.where((p) => p.status == 'inactive').toList();
+    }
+    
     if (_filterCategoryId != null) {
       list = list.where((p) => p.categoryId == _filterCategoryId).toList();
     }
@@ -133,6 +137,29 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
               _showSnack('Đã xóa ${product.name}', isError: true);
             },
             child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmToggleOff(BuildContext context, ProductModel product) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xác nhận tắt sản phẩm'),
+        content: Text('Bạn có chắc chắn muốn ngừng hoạt động của sản phẩm "${product.name}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<WarehouseProvider>().toggleProductStatus(product);
+              _showSnack('Đã tắt ${product.name}', isError: true);
+            },
+            child: const Text('Tắt', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -218,28 +245,57 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
                 ),
               ),
               const SizedBox(height: 8),
-              // Category chips
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(children: [
-                  _Chip(label: 'Tất cả', selected: _filterCategoryId == null,
-                      onTap: () => setState(() => _filterCategoryId = null)),
-                  ...prov.categories.map((c) => _Chip(
-                    label: c.name, selected: _filterCategoryId == c.id,
-                    onTap: () => setState(() =>
-                        _filterCategoryId = _filterCategoryId == c.id ? null : c.id),
-                  )),
-                  const SizedBox(width: 4),
-                  FilterChip(
-                    label: const Text('Không hoạt động', style: TextStyle(fontSize: 11)),
-                    selected: _showInactiveOnly,
-                    onSelected: (v) => setState(() => _showInactiveOnly = v),
-                    selectedColor: AppColors.errorLight,
-                    checkmarkColor: AppColors.error,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+              // Filters
+              Row(children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int?>(
+                        value: _filterCategoryId,
+                        isExpanded: true,
+                        icon: const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
+                        style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('Tất cả danh mục')),
+                          ...prov.categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
+                        ],
+                        onChanged: (v) => setState(() => _filterCategoryId = v),
+                      ),
+                    ),
                   ),
-                ]),
-              ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _filterStatus,
+                        isExpanded: true,
+                        icon: const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
+                        style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                        items: const [
+                          DropdownMenuItem(value: 'active', child: Text('Đang hoạt động')),
+                          DropdownMenuItem(value: 'inactive', child: Text('Không hoạt động')),
+                          DropdownMenuItem(value: 'all', child: Text('Tất cả trạng thái')),
+                        ],
+                        onChanged: (v) => setState(() => _filterStatus = v ?? 'active'),
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
             ]),
           ),
 
@@ -290,9 +346,12 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
         onEdit: () => _showProductDialog(product: products[i]),
         onDelete: () => _confirmDelete(context, products[i]),
         onToggle: () {
-          context.read<WarehouseProvider>().toggleProductStatus(products[i]);
-          _showSnack(products[i].status == 'active'
-              ? 'Đã tắt ${products[i].name}' : 'Đã bật ${products[i].name}');
+          if (products[i].status == 'active') {
+            _confirmToggleOff(context, products[i]);
+          } else {
+            context.read<WarehouseProvider>().toggleProductStatus(products[i]);
+            _showSnack('Đã bật ${products[i].name}');
+          }
         },
       ),
     );
