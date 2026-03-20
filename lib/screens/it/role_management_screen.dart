@@ -4,7 +4,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/enums.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../data/database_service.dart';
-import '../../models/notification_model.dart';
 import '../../models/store_model.dart';
 import '../../models/user_model.dart';
 
@@ -110,14 +109,12 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
     final now = DateTime.now();
 
     // 1. Thông báo đến chính user bị chỉnh sửa
-    await DatabaseService.instance.insertNotification(NotificationModel(
-      id: 0,
+    await DatabaseService.instance.insertNotification(
       type: 'role_update',
       title: 'Thông tin tài khoản của bạn đã được cập nhật',
       content: 'IT Admin đã thay đổi: ${changes.join('; ')}',
       targetUserId: user.id,
-      createdAt: now,
-    ));
+    );
 
     // 2. Nếu chuyển cửa hàng → thông báo manager cửa hàng mới
     if (newStoreId != null && newStoreId != oldStoreId) {
@@ -126,15 +123,13 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
         u.role == UserRole.storeManager && u.storeId == newStoreId && u.status == 'active',
       );
       for (final mgr in managers) {
-        await DatabaseService.instance.insertNotification(NotificationModel(
-          id: 0,
+        await DatabaseService.instance.insertNotification(
           type: 'role_update',
           title: 'Nhân viên mới được thêm vào cửa hàng của bạn',
           content: '${user.fullName} (${newRole.displayName}) đã được thêm vào ${resolveStoreName(newStoreId)}',
           targetUserId: mgr.id,
           storeId: newStoreId,
-          createdAt: now,
-        ));
+        );
       }
     }
   }
@@ -156,28 +151,24 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
     }
 
     final storePart = user.storeId != null ? ' tại ${resolveStoreName(user.storeId)}' : '';
-    await DatabaseService.instance.insertNotification(NotificationModel(
-      id: 0,
+    await DatabaseService.instance.insertNotification(
       type: 'system',
       title: 'Tài khoản của bạn đã được tạo',
       content: 'Chào mừng ${user.fullName}! Vai trò: ${user.role.displayName}$storePart.'
           ' Tên đăng nhập: ${user.username}. Mật khẩu: $password',
       targetUserId: userId,
       storeId: user.storeId,
-      createdAt: DateTime.now(),
-    ));
+    );
   }
 
   // ─── Gửi thông báo khi reset mật khẩu ────────────────────────────────────
   Future<void> _sendResetPasswordNotification(UserModel user) async {
-    await DatabaseService.instance.insertNotification(NotificationModel(
-      id: 0,
+    await DatabaseService.instance.insertNotification(
       type: 'system',
       title: 'Mật khẩu của bạn đã được đặt lại',
       content: 'IT Admin đã reset mật khẩu của bạn về 123456. Vui lòng đổi mật khẩu sau khi đăng nhập.',
       targetUserId: user.id,
-      createdAt: DateTime.now(),
-    ));
+    );
   }
 
   // ─── ADD DIALOG ───────────────────────────────────────────────────────────

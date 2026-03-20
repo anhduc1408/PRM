@@ -11,7 +11,6 @@ import '../../widgets/date_range_filter.dart';
 import '../../widgets/product_rank_list.dart';
 import '../../widgets/revenue_chart.dart';
 import '../../widgets/stat_card.dart';
-import '../../core/constants/enums.dart';
 
 class CeoDashboardScreen extends StatefulWidget {
   const CeoDashboardScreen({super.key});
@@ -308,7 +307,7 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          RevenueChart(data: d.chartData, days: _period == PeriodFilter.day ? 1 : (_period == PeriodFilter.week ? 7 : 30)),
+          RevenueChart(data: d.chartData, days: _toDate.difference(_fromDate).inDays.clamp(1, 30)),
         ],
       ),
     );
