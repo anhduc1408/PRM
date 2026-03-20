@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+import 'dart:io' show Platform;
 import 'core/constants/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/auth_provider.dart';
@@ -19,12 +20,14 @@ void main() async {
 
   // Platform-specific SQLite init
   if (kIsWeb) {
-    // No web worker — runs SQLite in main thread, compatible with :memory: path
+    // Web: use in-memory FFI (no web worker)
     databaseFactory = databaseFactoryFfiWebNoWebWorker;
-  } else {
+  } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    // Desktop: sqflite needs the FFI factory
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
+  // Android / iOS: sqflite uses its own native driver — no override needed
 
   await initializeDateFormatting('vi', null);
 

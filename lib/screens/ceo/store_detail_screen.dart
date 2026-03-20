@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/enums.dart';
 import '../../core/providers/store_provider.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/database_service.dart';
@@ -251,7 +250,7 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                       const Text('Biểu đồ doanh thu',
                           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                       const SizedBox(height: 16),
-                      RevenueChart(data: d.chartData, days: _period == PeriodFilter.day ? 1 : (_period == PeriodFilter.week ? 7 : 30)),
+                      RevenueChart(data: d.chartData, days: _toDate.difference(_fromDate).inDays.clamp(1, 30)),
                     ]),
                   );
                   final topProd = Container(
