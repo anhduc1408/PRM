@@ -4,6 +4,9 @@ import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/warehouse_provider.dart';
 import '../../models/stock_transfer_model.dart';
+import '../../models/product_model.dart';
+import '../../core/utils/format_utils.dart';
+import '../../core/providers/notification_provider.dart';
 import '../../data/database_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -506,6 +509,7 @@ class _ReceiveSheet extends StatefulWidget {
 
 class _ReceiveSheetState extends State<_ReceiveSheet> {
   late List<TextEditingController> _ctrls;
+  late List<DateTime?> _expiryDates;
   bool _submitting = false;
 
   @override
@@ -514,6 +518,7 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
     // Khởi tạo controller với estimate_quantity làm giá trị mặc định
     _ctrls = widget.transfer.items.map((item) =>
         TextEditingController(text: '${item.estimateQuantity}')).toList();
+    _expiryDates = List.filled(widget.transfer.items.length, null);
   }
 
   @override
@@ -537,13 +542,14 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
     final user = context.read<AuthProvider>().currentUser;
     final prov = context.read<WarehouseProvider>();
 
-    final items = <Map<String, int>>[];
+    final items = <Map<String, dynamic>>[];
     for (int i = 0; i < widget.transfer.items.length; i++) {
       final item = widget.transfer.items[i];
       items.add({
         'itemId': item.id,
         'productId': item.productId,
         'actualQty': int.parse(_ctrls[i].text.trim()),
+        'expiryDate': _expiryDates[i]?.toIso8601String(),
       });
     }
 
@@ -557,14 +563,24 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
     if (mounted) {
       setState(() => _submitting = false);
       if (ok) {
+        // Add log notification
+        await DatabaseService.instance.insertNotification(
+          type: 'transfer',
+          title: 'Xác nhận nhận hàng thành công',
+          content: 'Quản lý ${user?.fullName ?? ""} đã xác nhận nhận hàng. Kho: ${widget.transfer.toWarehouseName ?? "Cửa hàng"}',
+          targetUserId: user?.id,
+          storeId: user?.storeId,
+        );
+        
+        if (user?.id != null) {
+           // Reload while still mounted
+           context.read<NotificationProvider>().loadNotifications(user!.id);
+        }
+        
+        // Pop the modal and show snackbar in the previous context
         Navigator.pop(context);
         widget.onSuccess();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Xác nhận nhận hàng thành công! Tồn kho cửa hàng đã được cập nhật.'),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 3),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Đã cập nhật tồn kho & tạo thông báo thành công'), backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
       } else {
         _showSnack('❌ Có lỗi xảy ra. Vui lòng thử lại!', isError: true);
       }
@@ -701,6 +717,12 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
                 return _ItemRow(
                   item: item,
                   controller: _ctrls[i],
+                  expiryDate: _expiryDates[i],
+                  onExpiryChanged: (d) {
+                    setState(() {
+                      _expiryDates[i] = d;
+                    });
+                  },
                 );
               },
             ),
@@ -779,8 +801,15 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
 class _ItemRow extends StatefulWidget {
   final StockTransferItemModel item;
   final TextEditingController controller;
+  final DateTime? expiryDate;
+  final ValueChanged<DateTime?> onExpiryChanged;
 
-  const _ItemRow({required this.item, required this.controller});
+  const _ItemRow({
+    required this.item, 
+    required this.controller,
+    this.expiryDate,
+    required this.onExpiryChanged,
+  });
 
   @override
   State<_ItemRow> createState() => _ItemRowState();
@@ -841,6 +870,38 @@ class _ItemRowState extends State<_ItemRow> {
               if (widget.item.productSku != null)
                 Text(widget.item.productSku!,
                     style: const TextStyle(fontSize: 10, color: AppColors.textHint)),
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: widget.expiryDate ?? DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 3650)),
+                  );
+                  if (picked != null) {
+                    widget.onExpiryChanged(picked);
+                  }
+                },
+                child: Container(
+                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                   decoration: BoxDecoration(
+                     border: Border.all(color: widget.expiryDate != null ? AppColors.primary : AppColors.border),
+                     borderRadius: BorderRadius.circular(4),
+                   ),
+                   child: Row(
+                     mainAxisSize: MainAxisSize.min,
+                     children: [
+                       Icon(Icons.calendar_today, size: 10, color: widget.expiryDate != null ? AppColors.primary : AppColors.textSecondary),
+                       const SizedBox(width: 4),
+                       Text(
+                         widget.expiryDate != null ? FormatUtils.formatDate(widget.expiryDate!) : 'Hạn sử dụng',
+                         style: TextStyle(fontSize: 10, color: widget.expiryDate != null ? AppColors.primary : AppColors.textSecondary)
+                       )
+                     ]
+                   )
+                ),
+              ),
             ]),
           ),
         ]),

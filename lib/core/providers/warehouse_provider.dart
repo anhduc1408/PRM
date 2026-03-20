@@ -161,7 +161,7 @@ class WarehouseProvider extends ChangeNotifier {
     required int transferId,
     required int toWarehouseId,
     required int receivedBy,
-    required List<Map<String, int>> items,
+    required List<Map<String, dynamic>> items,
   }) async {
     try {
       await DatabaseService.instance.receiveTransfer(

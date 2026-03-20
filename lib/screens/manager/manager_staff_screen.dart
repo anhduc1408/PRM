@@ -7,6 +7,8 @@ import '../../core/utils/format_utils.dart';
 import '../../data/database_service.dart';
 import '../../models/user_model.dart';
 import '../../models/work_schedule_model.dart';
+import '../../widgets/date_range_filter.dart';
+import '../../core/providers/notification_provider.dart';
 
 class ManagerStaffScreen extends StatefulWidget {
   const ManagerStaffScreen({super.key});
@@ -71,35 +73,7 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
     return result;
   }
 
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (ctx, child) => Theme(
-        data: ThemeData(colorSchemeSeed: AppColors.primary),
-        child: child!,
-      ),
-    );
-    
-    if (picked != null) {
-      setState(() {
-         // Limit to 14 days max to avoid overflowing UI columns
-         final diff = picked.end.difference(picked.start).inDays;
-         _startDate = picked.start;
-         if (diff > 14) {
-             _endDate = picked.start.add(const Duration(days: 14));
-             if(mounted) {
-                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chỉ hiển thị tối đa 14 ngày trên bảng để đảm bảo hiệu năng UI.')));
-             }
-         } else {
-             _endDate = picked.end;
-         }
-      });
-      _load();
-    }
-  }
+  // Filter logic moved to DateRangeFilterBar inline in build method
 
   Future<void> _assignShift(UserModel staff, DateTime date, List<WorkShiftModel> shifts, List<ShiftAssignmentModel> currentAssignments) async {
     final curUser = context.read<AuthProvider>().currentUser;
@@ -167,13 +141,17 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
     });
 
     if (saved == true) {
-      // Find what to delete
+      final messenger = ScaffoldMessenger.of(context);
+      final np = context.read<NotificationProvider>();
+      final auth = context.read<AuthProvider>();
+      final curUser = auth.currentUser;
+
+      // Perform updates
       final toDelete = currentAssignments.where((a) => !selectedShiftIds.contains(a.shiftId)).toList();
       for (var a in toDelete) {
         await DatabaseService.instance.deleteShiftAssignment(a.id);
       }
       
-      // Find what to add
       final toAddIds = selectedShiftIds.where((id) => !initiallySelected.contains(id)).toList();
       for (var id in toAddIds) {
         final assignment = ShiftAssignmentModel(
@@ -182,22 +160,54 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
           userId: staff.id,
           workDate: date,
           status: 'scheduled',
-          assignedBy: curUser.id,
+          assignedBy: curUser?.id ?? 0,
           createdAt: DateTime.now(),
         );
         await DatabaseService.instance.insertShiftAssignment(assignment);
       }
-            _load();
-      if (mounted) {
-        final curUser = context.read<AuthProvider>().currentUser;
+
+      // Check if any change actually happened to decide on notification
+      final hasChanges = toDelete.isNotEmpty || toAddIds.isNotEmpty;
+
+      if (hasChanges && curUser != null) {
+        // 1. Notify Staff
         await DatabaseService.instance.insertNotification(
           type: 'system',
           title: 'Cập nhật lịch làm',
-          content: '${curUser?.fullName ?? "Quản lý"} đã cập nhật lịch làm ngày ${FormatUtils.formatDate(date)} cho ${staff.fullName}.',
+          content: '${curUser.fullName} đã cập nhật lịch làm ngày ${FormatUtils.formatDate(date)} cho bạn.',
           targetUserId: staff.id,
           storeId: staff.storeId,
         );
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã cập nhật ca thành công cho ${staff.fullName}'), backgroundColor: AppColors.success));
+        
+        // 2. Notify Manager (if different from staff)
+        if (curUser.id != staff.id) {
+          await DatabaseService.instance.insertNotification(
+            type: 'system',
+            title: 'Xếp ca thành công',
+            content: 'Bạn đã cập nhật lịch làm ngày ${FormatUtils.formatDate(date)} cho nhân viên ${staff.fullName}.',
+            targetUserId: curUser.id,
+            storeId: curUser.storeId,
+          );
+        }
+        
+        // Reload bell
+        await np.loadNotifications(curUser.id);
+      }
+
+      _load();
+      
+      if (hasChanges) {
+        messenger.showSnackBar(SnackBar(
+          content: Text('Đã cập nhật ca làm & gửi thông báo cho ${staff.fullName}'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+        ));
+      } else {
+        messenger.showSnackBar(const SnackBar(
+          content: Text('Không có thay đổi nào trong ca làm.'),
+          behavior: SnackBarBehavior.floating,
+        ));
       }
     }
   }
@@ -256,10 +266,16 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
                       )
                     );
                     if (confirm != true) return;
+                    bool updatedAny = false;
                     for (var id in toMarkIds) {
                        await DatabaseService.instance.updateShiftAssignmentStatus(id, 'absent');
+                       updatedAny = true;
                     }
-                    if (context.mounted) Navigator.pop(ctx);
+                    if (updatedAny && ctx.mounted) {
+                       Navigator.pop(ctx, true); // Return true to indicate success
+                    } else if (ctx.mounted) {
+                       Navigator.pop(ctx, false);
+                    }
                  }, 
                  child: const Text('Xác nhận nghỉ')
                ),
@@ -269,15 +285,39 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
       )
     );
 
-    if (toMarkIds.isNotEmpty) {
+    // Now handle notifications based on result
+    if (toMarkIds.isNotEmpty && curUser != null) {
+       final messenger = ScaffoldMessenger.of(context);
+       final np = context.read<NotificationProvider>();
+
+       // Notify Staff
        await DatabaseService.instance.insertNotification(
           type: 'system',
           title: 'Báo nghỉ ca làm',
-          content: 'Quản lý ${curUser.fullName} đã đánh dấu nghỉ ${toMarkIds.length} ca cho ${staff.fullName} vào ngày ${FormatUtils.formatDate(date)}.',
+          content: 'Quản lý ${curUser.fullName} đã đánh dấu nghỉ ${toMarkIds.length} ca cho bạn vào ngày ${FormatUtils.formatDate(date)}.',
           targetUserId: staff.id,
           storeId: staff.storeId,
        );
+       
+       // Notify Manager
+       if (curUser.id != staff.id) {
+          await DatabaseService.instance.insertNotification(
+             type: 'system',
+             title: 'Đánh dấu nghỉ thành công',
+             content: 'Bạn đã đánh dấu nghỉ ${toMarkIds.length} ca cho nhân viên ${staff.fullName} vào ngày ${FormatUtils.formatDate(date)}.',
+             targetUserId: curUser.id,
+             storeId: curUser.storeId,
+          );
+       }
+       
+       await np.loadNotifications(curUser.id);
        _load();
+       messenger.showSnackBar(SnackBar(
+          content: Text('Đã đánh dấu nghỉ ca cho ${staff.fullName} & gửi thông báo'),
+          backgroundColor: AppColors.warning,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+       ));
     }
   }
 
@@ -342,30 +382,24 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Lịch làm việc bao quát', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                InkWell(
-                  onTap: _pickDateRange,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(8),
-                      color: Colors.white,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.calendar_today, size: 18, color: AppColors.textSecondary),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${FormatUtils.formatDate(_startDate)} - ${FormatUtils.formatDate(_endDate)}',
-                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
-                      ],
-                    ),
-                  ),
+                DateRangeFilterBar(
+                  initialFrom: _startDate,
+                  initialTo: _endDate,
+                  onChanged: (val) {
+                    setState(() {
+                       final diff = val.end.difference(val.start).inDays;
+                       _startDate = val.start;
+                       if (diff > 14) {
+                           _endDate = val.start.add(const Duration(days: 14));
+                           if(mounted) {
+                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chỉ hiển thị tối đa 14 ngày trên bảng để đảm bảo hiệu năng UI.')));
+                           }
+                       } else {
+                           _endDate = val.end;
+                       }
+                    });
+                    _load();
+                  },
                 ),
               ],
             ),
@@ -569,16 +603,23 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
                                          // Show modal to pick shifts
                                          _markAbsentWithModal(staff, _selectedListDate, data.shifts, assignments);
                                       } else {
+                                         final messenger = ScaffoldMessenger.of(context);
                                          final updated = staff.copyWith(status: 'active');
                                          await DatabaseService.instance.updateUser(updated);
                                          await DatabaseService.instance.insertNotification(
                                             type: 'system',
                                             title: 'Kích hoạt tài khoản',
-                                            content: 'Quản lý đã kích hoạt lại tài khoản cho ${staff.fullName}.',
+                                            content: 'Quản lý đã kích hoạt lại tài khoản cho nhân viên ${staff.fullName}.',
                                             targetUserId: staff.id,
                                             storeId: staff.storeId,
                                          );
                                          _load();
+                                         messenger.showSnackBar(SnackBar(
+                                            content: Text('Đã kích hoạt tài khoản ${staff.fullName}'),
+                                            backgroundColor: AppColors.success,
+                                            behavior: SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                         ));
                                       }
                                     },
                                   ),
@@ -588,8 +629,33 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
                                     label: const Text('Reset MK'),
                                     onPressed: () async {
                                       await DatabaseService.instance.resetPassword(staff.id);
+                                      final curUser = context.read<AuthProvider>().currentUser;
+                                      
+                                      // Notify Staff
+                                      await DatabaseService.instance.insertNotification(
+                                         type: 'system',
+                                         title: 'Mật khẩu đã được reset',
+                                         content: 'Quản lý ${curUser?.fullName ?? ""} đã reset mật khẩu của bạn về 123456.',
+                                         targetUserId: staff.id,
+                                         storeId: staff.storeId,
+                                      );
+                                      
+                                      // Notify Manager
+                                      if (curUser != null && curUser.id != staff.id) {
+                                         await DatabaseService.instance.insertNotification(
+                                            type: 'system',
+                                            title: 'Reset mật khẩu thành công',
+                                            content: 'Bạn đã reset mật khẩu của nhân viên ${staff.fullName} về 123456.',
+                                            targetUserId: curUser.id,
+                                            storeId: curUser.storeId,
+                                         );
+                                      }
+                                      
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('MK đã reset về 123456')));
+                                        if (curUser != null) {
+                                           context.read<NotificationProvider>().loadNotifications(curUser.id);
+                                        }
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã reset mật khẩu của ${staff.fullName} về 123456 và gửi thông báo'), backgroundColor: AppColors.warning, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
                                       }
                                     },
                                   )

@@ -5,6 +5,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/database_service.dart';
 import '../../models/order_model.dart';
+import '../../widgets/date_range_filter.dart';
 import '../../widgets/period_filter_tabs.dart';
 
 class ManagerOrdersScreen extends StatefulWidget {
@@ -64,28 +65,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
     }).toList();
   }
 
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      initialDateRange: _startDate != null && _endDate != null
-          ? DateTimeRange(start: _startDate!, end: _endDate!)
-          : null,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (ctx, child) => Theme(
-        data: ThemeData(colorSchemeSeed: AppColors.primary),
-        child: child!,
-      ),
-    );
-    if (picked != null) {
-      setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
-        _currentPage = 1;
-      });
-      _load();
-    }
-  }
+  // Filter logic moved inline to DateRangeFilterBar in build()
 
   @override
   Widget build(BuildContext context) {
@@ -127,17 +107,17 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
                        children: [
                          // Date Range Filter
                          Expanded(
-                           child: OutlinedButton.icon(
-                             icon: const Icon(Icons.date_range),
-                             label: Text(
-                               _startDate != null && _endDate != null
-                                   ? '${FormatUtils.formatDate(_startDate!)} - ${FormatUtils.formatDate(_endDate!)}'
-                                   : 'Chọn ngày',
-                             ),
-                             onPressed: _pickDateRange,
-                             style: OutlinedButton.styleFrom(
-                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                             ),
+                           child: DateRangeFilterBar(
+                             initialFrom: _startDate,
+                             initialTo: _endDate,
+                             onChanged: (val) {
+                               setState(() {
+                                 _startDate = val.start;
+                                 _endDate = val.end;
+                                 _currentPage = 1;
+                               });
+                               _load();
+                             },
                            ),
                          ),
                          const SizedBox(width: 16),
