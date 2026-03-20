@@ -1,4 +1,4 @@
-// src/screens/manager/manager_inventory_screen.dart
+// src/screens/manager/manager_inventory_screen
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
