@@ -445,8 +445,20 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
   }
 
   Widget _buildInventoryTab(WarehouseProvider prov, int? storeId) {
-    final inventory = prov.inventory;
+    var inventory = prov.inventory;
+    if (_searchCtrl.text.isNotEmpty) {
+      final q = _searchCtrl.text.toLowerCase();
+      inventory = inventory.where((inv) {
+        final name = inv.productName?.toLowerCase() ?? '';
+        final sku = inv.productSku?.toLowerCase() ?? '';
+        return name.contains(q) || sku.contains(q);
+      }).toList();
+    }
+
     if (inventory.isEmpty) {
+      if (_searchCtrl.text.isNotEmpty) {
+        return const Center(child: Text('Không tìm thấy kết quả', style: TextStyle(color: AppColors.textSecondary)));
+      }
       return Center(child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -479,18 +491,28 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
   // ─── EXPIRY TAB ──────────────────────────────────────────────────────────
   Widget _buildExpiryTab(WarehouseProvider prov) {
     final now = DateTime.now();
-    final expired = prov.expiredItems;
-    final valid = prov.validItems;
-    final expiring30 = prov.expiringWithin(30);
 
-    // Tất cả items có ngày hạn, sắp xếp: hết hạn trước, sau đó sắp hết, rồi còn hạn lâu
-    final allWithExpiry = [
-      ...prov.inventory.where((i) => i.expiryDate != null),
-    ]..sort((a, b) {
-        final da = a.expiryDate!;
-        final db = b.expiryDate!;
-        return da.compareTo(db); // cũ nhất lên đầu
+    var baseInventory = prov.inventory.where((i) => i.expiryDate != null);
+    if (_searchCtrl.text.isNotEmpty) {
+      final q = _searchCtrl.text.toLowerCase();
+      baseInventory = baseInventory.where((inv) {
+        final name = inv.productName?.toLowerCase() ?? '';
+        final sku = inv.productSku?.toLowerCase() ?? '';
+        return name.contains(q) || sku.contains(q);
       });
+    }
+
+    final allWithExpiry = baseInventory.toList()..sort((a, b) => a.expiryDate!.compareTo(b.expiryDate!));
+    
+    final expired = allWithExpiry.where((i) => i.expiryDate!.isBefore(now)).toList();
+    final expiring30 = allWithExpiry.where((i) {
+      if (i.expiryDate!.isBefore(now)) return false;
+      return i.expiryDate!.difference(now).inDays <= 30;
+    }).toList();
+    final valid = allWithExpiry.where((i) {
+      if (i.expiryDate!.isBefore(now)) return false;
+      return i.expiryDate!.difference(now).inDays > 30;
+    }).toList();
 
     if (prov.inventory.isEmpty) {
       return const Center(
@@ -566,11 +588,16 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
   }
 
   void _showEditExpiryDialog(WarehouseInventoryModel inv) async {
-    DateTime selectedDate = inv.expiryDate ?? DateTime.now().add(const Duration(days: 30));
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    DateTime selectedDate = inv.expiryDate ?? today.add(const Duration(days: 30));
+    if (selectedDate.isBefore(today)) {
+      selectedDate = today;
+    }
     final picked = await showDatePicker(
       context: context,
       initialDate: selectedDate,
-      firstDate: DateTime(2020),
+      firstDate: today,
       lastDate: DateTime(2030),
       helpText: 'Chọn ngày hết hạn',
       confirmText: 'Lưu',
