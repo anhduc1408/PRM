@@ -113,7 +113,7 @@ class _ManagerShellState extends State<ManagerShell> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Mixue — Quản lý',
+                  'Minh Châu — Quản lý',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,

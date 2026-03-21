@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/enums.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/warehouse_provider.dart';
+import '../../core/services/notification_service.dart';
 import '../../models/product_model.dart';
 import '../../models/warehouse_inventory_model.dart';
 import '../../models/category_model.dart';
@@ -88,8 +89,10 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
         product: product,
         categories: context.read<WarehouseProvider>().categories,
         onSave: (data) async {
-          final prov = context.read<WarehouseProvider>();
+          final prov   = context.read<WarehouseProvider>();
+          final userId = context.read<AuthProvider>().currentUser?.id ?? 0;
           if (product == null) {
+            // Thêm mới
             await prov.addProduct(
               sku: data['sku'] as String,
               name: data['name'] as String,
@@ -100,7 +103,13 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
               emoji: data['emoji'] as String,
               barcode: data['barcode'] as String?,
             );
+            await NotificationService.productAdded(
+              actorId: userId,
+              productName: data['name'] as String,
+              sku: data['sku'] as String,
+            );
           } else {
+            // Cập nhật
             await prov.updateProduct(product,
               name: data['name'] as String,
               categoryId: data['categoryId'] as int,
@@ -109,6 +118,12 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
               sellingPrice: data['sellingPrice'] as double,
               emoji: data['emoji'] as String,
               barcode: data['barcode'] as String?,
+            );
+            await NotificationService.productUpdated(
+              actorId: userId,
+              productName: data['name'] as String,
+              sku: product.sku,
+              productId: product.id,
             );
           }
         },
@@ -131,10 +146,16 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () {
+            onPressed: () async {
+              final userId = context.read<AuthProvider>().currentUser?.id ?? 0;
               Navigator.pop(ctx);
-              context.read<WarehouseProvider>().deleteProduct(product.id);
-              _showSnack('Đã xóa ${product.name}', isError: true);
+              await context.read<WarehouseProvider>().deleteProduct(product.id);
+              await NotificationService.productDeleted(
+                actorId: userId,
+                productName: product.name,
+                sku: product.sku,
+              );
+              if (mounted) _showSnack('Xóa ${product.name} thành công', isError: true);
             },
             child: const Text('Xóa', style: TextStyle(color: Colors.white)),
           ),
@@ -154,10 +175,18 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning),
-            onPressed: () {
+            onPressed: () async {
+              final userId = context.read<AuthProvider>().currentUser?.id ?? 0;
               Navigator.pop(ctx);
-              context.read<WarehouseProvider>().toggleProductStatus(product);
-              _showSnack('Đã tắt ${product.name}', isError: true);
+              await context.read<WarehouseProvider>().toggleProductStatus(product);
+              await NotificationService.productStatusChanged(
+                actorId: userId,
+                productName: product.name,
+                sku: product.sku,
+                isActive: false,
+                productId: product.id,
+              );
+              if (mounted) _showSnack('Đã tắt ${product.name}', isError: true);
             },
             child: const Text('Tắt', style: TextStyle(color: Colors.white)),
           ),
@@ -345,12 +374,20 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
         product: products[i],
         onEdit: () => _showProductDialog(product: products[i]),
         onDelete: () => _confirmDelete(context, products[i]),
-        onToggle: () {
+        onToggle: () async {
+          final userId = context.read<AuthProvider>().currentUser?.id ?? 0;
           if (products[i].status == 'active') {
             _confirmToggleOff(context, products[i]);
           } else {
-            context.read<WarehouseProvider>().toggleProductStatus(products[i]);
-            _showSnack('Đã bật ${products[i].name}');
+            await context.read<WarehouseProvider>().toggleProductStatus(products[i]);
+            await NotificationService.productStatusChanged(
+              actorId: userId,
+              productName: products[i].name,
+              sku: products[i].sku,
+              isActive: true,
+              productId: products[i].id,
+            );
+            if (mounted) _showSnack('Đã bật ${products[i].name}');
           }
         },
       ),
@@ -409,13 +446,23 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2D7A50)),
-            onPressed: () {
+            onPressed: () async {
               final qty = int.tryParse(ctrl.text.trim());
               if (qty != null && qty >= 0) {
+                final userId  = context.read<AuthProvider>().currentUser?.id ?? 0;
+                final oldQty  = inv.quantity;
                 Navigator.pop(ctx);
-                context.read<WarehouseProvider>()
+                await context.read<WarehouseProvider>()
                     .adjustInventory(inv.warehouseId, inv.productId, qty);
-                _showSnack('Đã cập nhật tồn kho ${inv.productName}');
+                await NotificationService.inventoryAdjusted(
+                  actorId: userId,
+                  productName: inv.productName ?? 'Sản phẩm #${inv.productId}',
+                  warehouseName: inv.warehouseName ?? 'Kho',
+                  oldQty: oldQty,
+                  newQty: qty,
+                  productId: inv.productId,
+                );
+                if (mounted) _showSnack('Đã cập nhật tồn kho ${inv.productName}');
               }
             },
             child: const Text('Lưu', style: TextStyle(color: Colors.white)),

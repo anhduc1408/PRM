@@ -277,47 +277,47 @@ class DatabaseService {
     final rng = Random();
 
     // Stores
-    await db.insert('stores', {'code': 'STR001', 'name': 'Mixue Quận 1', 'address': '123 Nguyễn Huệ, Q.1', 'phone': '028-1234-5678', 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('stores', {'code': 'STR002', 'name': 'Mixue Quận 3', 'address': '456 Võ Văn Tần, Q.3', 'phone': '028-2345-6789', 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('stores', {'code': 'STR003', 'name': 'Mixue Bình Thạnh', 'address': '789 Đinh Bộ Lĩnh, BTh', 'phone': '028-3456-7890', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('stores', {'code': 'STR001', 'name': 'Tạp Hóa Minh Châu - Quận 1', 'address': '45 Nguyễn Trãi, Q.1, TP.HCM', 'phone': '028-1234-5678', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('stores', {'code': 'STR002', 'name': 'Tạp Hóa Minh Châu - Quận 5', 'address': '128 Trần Hưng Đạo, Q.5, TP.HCM', 'phone': '028-2345-6789', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('stores', {'code': 'STR003', 'name': 'Tạp Hóa Minh Châu - Bình Thạnh', 'address': '67 Đinh Bộ Lĩnh, Bình Thạnh, TP.HCM', 'phone': '028-3456-7890', 'status': 'active', 'created_at': now, 'updated_at': now});
 
     // Users
-    await db.insert('users', {'username': 'ceo', 'password_hash': '123456', 'full_name': 'CEO Admin', 'email': 'ceo@mixue.vn', 'role': 'ceoAdmin', 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('users', {'username': 'it', 'password_hash': '123456', 'full_name': 'IT Admin', 'email': 'it@mixue.vn', 'role': 'itAdmin', 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('users', {'username': 'staff1', 'password_hash': '123456', 'full_name': 'Nguyễn Văn An', 'email': 'staff1@mixue.vn', 'role': 'staff', 'store_id': 1, 'phone': '0901234567', 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('users', {'username': 'staff2', 'password_hash': '123456', 'full_name': 'Trần Thị Bình', 'email': 'staff2@mixue.vn', 'role': 'staff', 'store_id': 2, 'phone': '0912345678', 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('users', {'username': 'manager1', 'password_hash': '123456', 'full_name': 'Lê Quản Lý', 'email': 'manager1@mixue.vn', 'role': 'storeManager', 'store_id': 1, 'phone': '0923456789', 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('users', {'username': 'checker1', 'password_hash': '123456', 'full_name': 'Phạm Kiểm Kho', 'email': 'checker1@mixue.vn', 'role': 'inventoryChecker', 'store_id': 1, 'phone': '0934567890', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'ceo', 'password_hash': '123456', 'full_name': 'Nguyễn Minh Châu', 'email': 'ceo@minhchau.vn', 'role': 'ceoAdmin', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'it', 'password_hash': '123456', 'full_name': 'IT Admin', 'email': 'it@minhchau.vn', 'role': 'itAdmin', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'staff1', 'password_hash': '123456', 'full_name': 'Nguyễn Văn An', 'email': 'staff1@minhchau.vn', 'role': 'staff', 'store_id': 1, 'phone': '0901234567', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'staff2', 'password_hash': '123456', 'full_name': 'Trần Thị Bình', 'email': 'staff2@minhchau.vn', 'role': 'staff', 'store_id': 2, 'phone': '0912345678', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'manager1', 'password_hash': '123456', 'full_name': 'Lê Văn Quản', 'email': 'manager1@minhchau.vn', 'role': 'storeManager', 'store_id': 1, 'phone': '0923456789', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'checker1', 'password_hash': '123456', 'full_name': 'Phạm Thị Kiểm', 'email': 'checker1@minhchau.vn', 'role': 'inventoryChecker', 'store_id': 1, 'phone': '0934567890', 'status': 'active', 'created_at': now, 'updated_at': now});
     
     // Add more mock staff for store 1
-    await db.insert('users', {'username': 'staff3', 'password_hash': '123456', 'full_name': 'Hoàng Văn Cường', 'email': 'staff3@mixue.vn', 'role': 'staff', 'store_id': 1, 'phone': '0945678901', 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('users', {'username': 'staff4', 'password_hash': '123456', 'full_name': 'Đinh Thị Dung', 'email': 'staff4@mixue.vn', 'role': 'staff', 'store_id': 1, 'phone': '0956789012', 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('users', {'username': 'staff5', 'password_hash': '123456', 'full_name': 'Cao Văn Em', 'email': 'staff5@mixue.vn', 'role': 'staff', 'store_id': 1, 'phone': '0967890123', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'staff3', 'password_hash': '123456', 'full_name': 'Hoàng Văn Cường', 'email': 'staff3@minhchau.vn', 'role': 'staff', 'store_id': 1, 'phone': '0945678901', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'staff4', 'password_hash': '123456', 'full_name': 'Đinh Thị Dung', 'email': 'staff4@minhchau.vn', 'role': 'staff', 'store_id': 1, 'phone': '0956789012', 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('users', {'username': 'staff5', 'password_hash': '123456', 'full_name': 'Cao Văn Em', 'email': 'staff5@minhchau.vn', 'role': 'staff', 'store_id': 1, 'phone': '0967890123', 'status': 'active', 'created_at': now, 'updated_at': now});
 
     // Warehouses
-    await db.insert('warehouses', {'code': 'WH001', 'name': 'Kho Tổng', 'type': 'main', 'store_id': 1, 'address': '1 Trung Tâm, Q.1', 'manager_user_id': 5, 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('warehouses', {'code': 'WH002', 'name': 'Kho Quận 1', 'type': 'store', 'store_id': 1, 'manager_user_id': 5, 'status': 'active', 'created_at': now, 'updated_at': now});
-    await db.insert('warehouses', {'code': 'WH003', 'name': 'Kho Quận 3', 'type': 'store', 'store_id': 2, 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('warehouses', {'code': 'WH001', 'name': 'Kho Tổng Trung Tâm', 'type': 'main', 'store_id': 1, 'address': '12 Lê Lai, Q.1, TP.HCM', 'manager_user_id': 5, 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('warehouses', {'code': 'WH002', 'name': 'Kho Chi Nhánh Q.1', 'type': 'store', 'store_id': 1, 'manager_user_id': 5, 'status': 'active', 'created_at': now, 'updated_at': now});
+    await db.insert('warehouses', {'code': 'WH003', 'name': 'Kho Chi Nhánh Q.5', 'type': 'store', 'store_id': 2, 'status': 'active', 'created_at': now, 'updated_at': now});
 
     // Categories
-    await db.insert('categories', {'name': 'Kem', 'description': 'Các loại kem', 'created_at': now, 'updated_at': now});
-    await db.insert('categories', {'name': 'Trà', 'description': 'Trà sữa, trà hoa quả', 'created_at': now, 'updated_at': now});
-    await db.insert('categories', {'name': 'Cà phê', 'description': 'Cà phê các loại', 'created_at': now, 'updated_at': now});
-    await db.insert('categories', {'name': 'Tráng miệng', 'description': 'Bánh, chè', 'created_at': now, 'updated_at': now});
-    await db.insert('categories', {'name': 'Khác', 'description': 'Sản phẩm khác', 'created_at': now, 'updated_at': now});
+    await db.insert('categories', {'name': 'Thực phẩm khô', 'description': 'Gạo, mì, bún, miến, đậu các loại', 'created_at': now, 'updated_at': now});
+    await db.insert('categories', {'name': 'Đồ uống', 'description': 'Nước ngọt, bia, nước trái cây, trà đóng chai', 'created_at': now, 'updated_at': now});
+    await db.insert('categories', {'name': 'Gia vị & Dầu ăn', 'description': 'Nước mắm, muối, đường, dầu ăn, tương, ớt', 'created_at': now, 'updated_at': now});
+    await db.insert('categories', {'name': 'Bánh kẹo & Snack', 'description': 'Bánh quy, kẹo, snack, chocolate, mứt', 'created_at': now, 'updated_at': now});
+    await db.insert('categories', {'name': 'Hàng gia dụng', 'description': 'Xà phòng, dầu gội, bột giặt, nước rửa chén', 'created_at': now, 'updated_at': now});
 
     // Products
     final products = [
-      {'sku': 'ICE001', 'name': 'Kem Que Mix', 'category_id': 1, 'unit': 'cây', 'cost_price': 5000.0, 'selling_price': 10000.0, 'emoji': '🍦'},
-      {'sku': 'ICE002', 'name': 'Kem Bơ Sữa', 'category_id': 1, 'unit': 'cây', 'cost_price': 8000.0, 'selling_price': 15000.0, 'emoji': '🍨'},
-      {'sku': 'ICE003', 'name': 'Kem Socola', 'category_id': 1, 'unit': 'cây', 'cost_price': 10000.0, 'selling_price': 20000.0, 'emoji': '🍫'},
-      {'sku': 'TEA001', 'name': 'Trà Sữa Original', 'category_id': 2, 'unit': 'ly', 'cost_price': 15000.0, 'selling_price': 35000.0, 'emoji': '🧋'},
-      {'sku': 'TEA002', 'name': 'Trà Đào Cam Sả', 'category_id': 2, 'unit': 'ly', 'cost_price': 12000.0, 'selling_price': 29000.0, 'emoji': '🍑'},
-      {'sku': 'TEA003', 'name': 'Trà Xanh Matcha', 'category_id': 2, 'unit': 'ly', 'cost_price': 18000.0, 'selling_price': 39000.0, 'emoji': '🍵'},
-      {'sku': 'COF001', 'name': 'Cà Phê Sữa', 'category_id': 3, 'unit': 'ly', 'cost_price': 10000.0, 'selling_price': 25000.0, 'emoji': '☕'},
-      {'sku': 'COF002', 'name': 'Cà Phê Đen', 'category_id': 3, 'unit': 'ly', 'cost_price': 8000.0, 'selling_price': 20000.0, 'emoji': '🍶'},
-      {'sku': 'DST001', 'name': 'Chè Ba Màu', 'category_id': 4, 'unit': 'ly', 'cost_price': 12000.0, 'selling_price': 28000.0, 'emoji': '🍮'},
-      {'sku': 'DST002', 'name': 'Bánh Flan', 'category_id': 4, 'unit': 'cái', 'cost_price': 8000.0, 'selling_price': 18000.0, 'emoji': '🍯'},
+      {'sku': 'DRY001', 'name': 'Gạo ST25 (5kg)', 'category_id': 1, 'unit': 'túi', 'cost_price': 85000.0, 'selling_price': 105000.0, 'emoji': '🌾'},
+      {'sku': 'DRY002', 'name': 'Mì Hảo Hảo (thùng 30 gói)', 'category_id': 1, 'unit': 'thùng', 'cost_price': 95000.0, 'selling_price': 120000.0, 'emoji': '🍜'},
+      {'sku': 'DRY003', 'name': 'Bún gạo khô (500g)', 'category_id': 1, 'unit': 'gói', 'cost_price': 18000.0, 'selling_price': 25000.0, 'emoji': '🍝'},
+      {'sku': 'BEV001', 'name': 'Bia Tiger (thùng 24 lon)', 'category_id': 2, 'unit': 'thùng', 'cost_price': 280000.0, 'selling_price': 340000.0, 'emoji': '🍺'},
+      {'sku': 'BEV002', 'name': 'Nước Pepsi (lốc 6 lon)', 'category_id': 2, 'unit': 'lốc', 'cost_price': 45000.0, 'selling_price': 58000.0, 'emoji': '🥤'},
+      {'sku': 'BEV003', 'name': 'Trà Ô Long C2 (lốc 6 chai)', 'category_id': 2, 'unit': 'lốc', 'cost_price': 38000.0, 'selling_price': 50000.0, 'emoji': '🧃'},
+      {'sku': 'SPC001', 'name': 'Nước mắm Phú Quốc (500ml)', 'category_id': 3, 'unit': 'chai', 'cost_price': 28000.0, 'selling_price': 38000.0, 'emoji': '🫙'},
+      {'sku': 'SPC002', 'name': 'Dầu ăn Neptune (2 lít)', 'category_id': 3, 'unit': 'chai', 'cost_price': 68000.0, 'selling_price': 85000.0, 'emoji': '🫒'},
+      {'sku': 'SNK001', 'name': 'Bánh quy Marie (hộp 400g)', 'category_id': 4, 'unit': 'hộp', 'cost_price': 32000.0, 'selling_price': 42000.0, 'emoji': '🍪'},
+      {'sku': 'HHD001', 'name': 'Bột giặt OMO (3kg)', 'category_id': 5, 'unit': 'túi', 'cost_price': 95000.0, 'selling_price': 120000.0, 'emoji': '🧺'},
     ];
     for (final prod in products) {
       await db.insert('products', {...prod, 'status': 'active', 'created_at': now, 'updated_at': now});
@@ -433,8 +433,8 @@ class DatabaseService {
     await db.insert('stock_transfer_items', {'transfer_id': t3Id, 'product_id': 6, 'estimate_quantity': 20, 'actual_quantity': 20});
 
     // ─── Seed Notifications ───────────────────────────────────────────────────
-    // User IDs: 1=ceo, 2=it, 3=staff1(Q1), 4=staff2(Q3), 5=manager1(Q1), 6=checker1(Q1), 7=staff3, 8=staff4, 9=staff5
-    // Store IDs: 1=Q1, 2=Q3, 3=Bình Thạnh
+    // User IDs: 1=ceo, 2=it, 3=staff1(Q1), 4=staff2(Q5), 5=manager1(Q1), 6=checker1(Q1), 7=staff3, 8=staff4, 9=staff5
+    // Store IDs: 1=Q1, 2=Q5, 3=Bình Thạnh
 
     final n1 = DateTime.now().subtract(const Duration(days: 7));
     final n2 = DateTime.now().subtract(const Duration(days: 5));
@@ -450,29 +450,29 @@ class DatabaseService {
     // --- Thông báo hệ thống (system) ---
     await db.insert('notifications', {
       'type': 'system', 'title': 'Tài khoản của bạn đã được tạo',
-      'content': 'Chào mừng Nguyễn Văn An! Vai trò: Nhân viên tại Mixue Quận 1. Tên đăng nhập: staff1. Mật khẩu: 123456',
+      'content': 'Chào mừng Nguyễn Văn An! Vai trò: Nhân viên tại Tạp Hóa Minh Châu - Quận 1. Tên đăng nhập: staff1. Mật khẩu: 123456',
       'target_user_id': 3, 'store_id': 1, 'is_read': 1, 'created_at': n1.toIso8601String(),
     });
     await db.insert('notifications', {
       'type': 'system', 'title': 'Tài khoản của bạn đã được tạo',
-      'content': 'Chào mừng Trần Thị Bình! Vai trò: Nhân viên tại Mixue Quận 3. Tên đăng nhập: staff2. Mật khẩu: 123456',
+      'content': 'Chào mừng Trần Thị Bình! Vai trò: Nhân viên tại Tạp Hóa Minh Châu - Quận 5. Tên đăng nhập: staff2. Mật khẩu: 123456',
       'target_user_id': 4, 'store_id': 2, 'is_read': 1, 'created_at': n1.toIso8601String(),
     });
     await db.insert('notifications', {
       'type': 'system', 'title': 'Tài khoản của bạn đã được tạo',
-      'content': 'Chào mừng Lê Quản Lý! Vai trò: Quản lý cửa hàng tại Mixue Quận 1. Tên đăng nhập: manager1. Mật khẩu: 123456',
+      'content': 'Chào mừng Lê Văn Quản! Vai trò: Quản lý cửa hàng tại Tạp Hóa Minh Châu - Quận 1. Tên đăng nhập: manager1. Mật khẩu: 123456',
       'target_user_id': 5, 'store_id': 1, 'is_read': 1, 'created_at': n1.toIso8601String(),
     });
 
     // --- Thông báo cập nhật vai trò (role_update) ---
     await db.insert('notifications', {
       'type': 'role_update', 'title': 'Thông tin tài khoản của bạn đã được cập nhật',
-      'content': 'IT Admin đã thay đổi: Cửa hàng: Không có cửa hàng → Mixue Quận 1',
+      'content': 'IT Admin đã thay đổi: Cửa hàng: Không có cửa hàng → Tạp Hóa Minh Châu - Quận 1',
       'target_user_id': 3, 'store_id': 1, 'is_read': 1, 'created_at': n2.toIso8601String(),
     });
     await db.insert('notifications', {
       'type': 'role_update', 'title': 'Nhân viên mới được thêm vào cửa hàng của bạn',
-      'content': 'Nguyễn Văn An (Nhân viên) đã được thêm vào Mixue Quận 1',
+      'content': 'Nguyễn Văn An (Nhân viên) đã được thêm vào Tạp Hóa Minh Châu - Quận 1',
       'target_user_id': 5, 'store_id': 1, 'is_read': 1, 'created_at': n2.toIso8601String(),
     });
     await db.insert('notifications', {
@@ -490,77 +490,77 @@ class DatabaseService {
 
     // --- Thông báo sắp hết hàng (low_stock) ---
     await db.insert('notifications', {
-      'type': 'low_stock', 'title': 'Sắp hết hàng: Kem Que Mix',
-      'content': 'Kem Que Mix tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 12',
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Gạo ST25 (5kg)',
+      'content': 'Gạo ST25 (5kg) tại Tạp Hóa Minh Châu - Quận 1 sắp hết hàng. Số lượng còn lại: 12 túi',
       'target_user_id': 5, 'store_id': 1, 'product_id': 1, 'is_read': 0, 'created_at': n4.toIso8601String(),
     });
     await db.insert('notifications', {
-      'type': 'low_stock', 'title': 'Sắp hết hàng: Kem Que Mix',
-      'content': 'Kem Que Mix tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 12',
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Gạo ST25 (5kg)',
+      'content': 'Gạo ST25 (5kg) tại Tạp Hóa Minh Châu - Quận 1 sắp hết hàng. Số lượng còn lại: 12 túi',
       'target_user_id': 6, 'store_id': 1, 'product_id': 1, 'is_read': 0, 'created_at': n4.toIso8601String(),
     });
     await db.insert('notifications', {
-      'type': 'low_stock', 'title': 'Sắp hết hàng: Trà Xanh Matcha',
-      'content': 'Trà Xanh Matcha tại Mixue Quận 3 sắp hết hàng. Số lượng còn lại: 8',
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Trà Ô Long C2',
+      'content': 'Trà Ô Long C2 (lốc 6 chai) tại Tạp Hóa Minh Châu - Quận 5 sắp hết hàng. Số lượng còn lại: 8 lốc',
       'target_user_id': 6, 'store_id': 2, 'product_id': 6, 'is_read': 1, 'created_at': n4.toIso8601String(),
     });
     await db.insert('notifications', {
-      'type': 'low_stock', 'title': 'Sắp hết hàng: Cà Phê Sữa',
-      'content': 'Cà Phê Sữa tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 5',
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Nước mắm Phú Quốc',
+      'content': 'Nước mắm Phú Quốc (500ml) tại Tạp Hóa Minh Châu - Quận 1 sắp hết hàng. Số lượng còn lại: 5 chai',
       'target_user_id': 5, 'store_id': 1, 'product_id': 7, 'is_read': 0, 'created_at': n5.toIso8601String(),
     });
     await db.insert('notifications', {
-      'type': 'low_stock', 'title': 'Sắp hết hàng: Cà Phê Sữa',
-      'content': 'Cà Phê Sữa tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 5',
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Nước mắm Phú Quốc',
+      'content': 'Nước mắm Phú Quốc (500ml) tại Tạp Hóa Minh Châu - Quận 1 sắp hết hàng. Số lượng còn lại: 5 chai',
       'target_user_id': 6, 'store_id': 1, 'product_id': 7, 'is_read': 0, 'created_at': n5.toIso8601String(),
     });
 
     // --- Thông báo chuyển kho (transfer) ---
     await db.insert('notifications', {
       'type': 'transfer', 'title': 'Phiếu chuyển kho mới cần duyệt',
-      'content': 'Phiếu chuyển kho từ Kho Tổng → Kho Quận 1 đang chờ xác nhận. 3 sản phẩm, ~100 đơn vị.',
+      'content': 'Phiếu chuyển kho từ Kho Tổng Trung Tâm → Kho Chi Nhánh Q.1 đang chờ xác nhận. 3 mặt hàng, ~100 đơn vị.',
       'target_user_id': 5, 'store_id': 1, 'is_read': 0, 'created_at': n6.toIso8601String(),
     });
     await db.insert('notifications', {
       'type': 'transfer', 'title': 'Hàng đã được gửi đến kho của bạn',
-      'content': 'Phiếu chuyển kho đang vận chuyển: Kho Tổng → Kho Quận 1. Dự kiến 3 sản phẩm.',
+      'content': 'Phiếu chuyển kho đang vận chuyển: Kho Tổng Trung Tâm → Kho Chi Nhánh Q.1. Dự kiến 3 mặt hàng.',
       'target_user_id': 6, 'store_id': 1, 'is_read': 1, 'created_at': n6.toIso8601String(),
     });
     await db.insert('notifications', {
       'type': 'transfer', 'title': 'Xác nhận nhận hàng thành công',
-      'content': 'Đã nhận hàng từ Kho Tổng. Kem Socola: 38/40 đơn vị, Trà Xanh Matcha: 20/20 đơn vị.',
+      'content': 'Đã nhận hàng từ Kho Tổng. Bún gạo khô: 38/40 gói, Trà Ô Long C2: 20/20 lốc.',
       'target_user_id': 6, 'store_id': 1, 'is_read': 1, 'created_at': n7.toIso8601String(),
     });
 
     // --- Thông báo mới nhất (chưa đọc) ---
     await db.insert('notifications', {
       'type': 'role_update', 'title': 'Thông tin tài khoản của bạn đã được cập nhật',
-      'content': 'IT Admin đã thay đổi: Cửa hàng: Mixue Quận 1 → Mixue Quận 3',
+      'content': 'IT Admin đã thay đổi: Cửa hàng: Tạp Hóa Minh Châu - Quận 1 → Tạp Hóa Minh Châu - Quận 5',
       'target_user_id': 8, 'store_id': 2, 'is_read': 0, 'created_at': n8.toIso8601String(),
     });
     await db.insert('notifications', {
       'type': 'role_update', 'title': 'Nhân viên mới được thêm vào cửa hàng của bạn',
-      'content': 'Đinh Thị Dung (Nhân viên) đã được thêm vào Mixue Quận 3',
+      'content': 'Đinh Thị Dung (Nhân viên) đã được thêm vào Tạp Hóa Minh Châu - Quận 1',
       'target_user_id': 5, 'store_id': 2, 'is_read': 0, 'created_at': n8.toIso8601String(),
     });
     await db.insert('notifications', {
-      'type': 'low_stock', 'title': 'Sắp hết hàng: Bánh Flan',
-      'content': 'Bánh Flan tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 3',
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Bột giặt OMO',
+      'content': 'Bột giặt OMO (3kg) tại Tạp Hóa Minh Châu - Quận 1 sắp hết hàng. Số lượng còn lại: 3 túi',
       'target_user_id': 5, 'store_id': 1, 'product_id': 10, 'is_read': 0, 'created_at': n9.toIso8601String(),
     });
     await db.insert('notifications', {
-      'type': 'low_stock', 'title': 'Sắp hết hàng: Bánh Flan',
-      'content': 'Bánh Flan tại Mixue Quận 1 sắp hết hàng. Số lượng còn lại: 3',
+      'type': 'low_stock', 'title': 'Sắp hết hàng: Bột giặt OMO',
+      'content': 'Bột giặt OMO (3kg) tại Tạp Hóa Minh Châu - Quận 1 sắp hết hàng. Số lượng còn lại: 3 túi',
       'target_user_id': 6, 'store_id': 1, 'product_id': 10, 'is_read': 0, 'created_at': n9.toIso8601String(),
     });
     await db.insert('notifications', {
       'type': 'system', 'title': 'Hệ thống bảo trì định kỳ',
-      'content': 'Hệ thống sẽ bảo trì vào 23:00 tối nay (18/03/2026). Thời gian dự kiến: 30 phút.',
+      'content': 'Hệ thống sẽ bảo trì vào 23:00 tối nay (20/03/2026). Thời gian dự kiến: 30 phút.',
       'target_user_id': 1, 'is_read': 0, 'created_at': n10.toIso8601String(),
     });
     await db.insert('notifications', {
       'type': 'system', 'title': 'Hệ thống bảo trì định kỳ',
-      'content': 'Hệ thống sẽ bảo trì vào 23:00 tối nay (18/03/2026). Thời gian dự kiến: 30 phút.',
+      'content': 'Hệ thống sẽ bảo trì vào 23:00 tối nay (20/03/2026). Thời gian dự kiến: 30 phút.',
       'target_user_id': 2, 'is_read': 0, 'created_at': n10.toIso8601String(),
     });
   }
@@ -617,11 +617,11 @@ class DatabaseService {
     final sId = storeRows.isNotEmpty ? storeRows.first['id'] as int : 1;
 
     final demos = [
-      {'username': 'ceo1',     'password_hash': '123456', 'full_name': 'CEO Admin',      'email': 'ceo1@mixue.vn',     'role': 'ceoAdmin',         'store_id': null, 'status': 'active', 'created_at': now, 'updated_at': now},
-      {'username': 'it1',      'password_hash': '123456', 'full_name': 'IT Admin',        'email': 'it1@mixue.vn',      'role': 'itAdmin',          'store_id': null, 'status': 'active', 'created_at': now, 'updated_at': now},
-      {'username': 'manager1', 'password_hash': '123456', 'full_name': 'Le Quan Ly',     'email': 'manager1@mixue.vn', 'role': 'storeManager',     'store_id': sId,  'status': 'active', 'created_at': now, 'updated_at': now},
-      {'username': 'checker1', 'password_hash': '123456', 'full_name': 'Pham Kiem Kho',  'email': 'checker1@mixue.vn', 'role': 'inventoryChecker', 'store_id': sId,  'status': 'active', 'created_at': now, 'updated_at': now},
-      {'username': 'staff1',   'password_hash': '123456', 'full_name': 'Nguyen Van An',  'email': 'staff1@mixue.vn',   'role': 'staff',            'store_id': sId,  'status': 'active', 'created_at': now, 'updated_at': now},
+      {'username': 'ceo1',     'password_hash': '123456', 'full_name': 'Nguyen Minh Chau', 'email': 'ceo1@minhchau.vn',     'role': 'ceoAdmin',         'store_id': null, 'status': 'active', 'created_at': now, 'updated_at': now},
+      {'username': 'it1',      'password_hash': '123456', 'full_name': 'IT Admin',          'email': 'it1@minhchau.vn',      'role': 'itAdmin',          'store_id': null, 'status': 'active', 'created_at': now, 'updated_at': now},
+      {'username': 'manager1', 'password_hash': '123456', 'full_name': 'Le Van Quan',       'email': 'manager1@minhchau.vn', 'role': 'storeManager',     'store_id': sId,  'status': 'active', 'created_at': now, 'updated_at': now},
+      {'username': 'checker1', 'password_hash': '123456', 'full_name': 'Pham Thi Kiem',     'email': 'checker1@minhchau.vn', 'role': 'inventoryChecker', 'store_id': sId,  'status': 'active', 'created_at': now, 'updated_at': now},
+      {'username': 'staff1',   'password_hash': '123456', 'full_name': 'Nguyen Van An',     'email': 'staff1@minhchau.vn',   'role': 'staff',            'store_id': sId,  'status': 'active', 'created_at': now, 'updated_at': now},
     ];
 
     for (final u in demos) {

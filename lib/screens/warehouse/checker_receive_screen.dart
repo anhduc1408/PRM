@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/warehouse_provider.dart';
+import '../../core/services/notification_service.dart';
 import '../../models/stock_transfer_model.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -542,14 +543,28 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
     if (mounted) {
       setState(() => _submitting = false);
       if (ok) {
-        Navigator.pop(context);
-        widget.onSuccess();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Xác nhận nhận hàng thành công! Tồn kho đã được cập nhật.'),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 3),
-        ));
+        // Tính tổng số lượng thực nhận
+        int totalActual = 0;
+        for (int i = 0; i < _ctrls.length; i++) {
+          totalActual += int.tryParse(_ctrls[i].text.trim()) ?? 0;
+        }
+        await NotificationService.transferReceived(
+          actorId: user?.id ?? 0,
+          fromWarehouse: widget.transfer.fromWarehouseName ?? 'Kho xuất',
+          toWarehouse: widget.transfer.toWarehouseName ?? 'Kho nhận',
+          itemCount: widget.transfer.items.length,
+          totalActual: totalActual,
+        );
+        if (mounted) {
+          Navigator.pop(context);
+          widget.onSuccess();
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('✅ Xác nhận nhận hàng thành công! Tồn kho đã được cập nhật.'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ));
+        }
       } else {
         _showSnack('❌ Có lỗi xảy ra. Vui lòng thử lại!', isError: true);
       }
