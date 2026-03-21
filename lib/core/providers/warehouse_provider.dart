@@ -29,6 +29,54 @@ class WarehouseProvider extends ChangeNotifier {
   List<WarehouseInventoryModel> get lowStockItems =>
       _inventory.where((i) => i.isLowStock).toList();
 
+  /// Sản phẩm đã hết hạn (expiryDate < hôm nay)
+  List<WarehouseInventoryModel> get expiredItems {
+    final now = DateTime.now();
+    return _inventory
+        .where((i) => i.expiryDate != null && i.expiryDate!.isBefore(now))
+        .toList();
+  }
+
+  /// Sản phẩm còn hạn sử dụng (expiryDate >= hôm nay)
+  List<WarehouseInventoryModel> get validItems {
+    final now = DateTime.now();
+    return _inventory
+        .where((i) => i.expiryDate != null && !i.expiryDate!.isBefore(now))
+        .toList();
+  }
+
+  /// Sản phẩm sắp hết hạn trong vòng [days] ngày tới
+  List<WarehouseInventoryModel> expiringWithin(int days) {
+    final now = DateTime.now();
+    final limit = now.add(Duration(days: days));
+    return _inventory
+        .where((i) =>
+            i.expiryDate != null &&
+            !i.expiryDate!.isBefore(now) &&
+            i.expiryDate!.isBefore(limit))
+        .toList();
+  }
+
+  /// Cập nhật ngày hết hạn cho một inventory item
+  Future<void> updateExpiryDate(int warehouseId, int productId, DateTime? date) async {
+    final db = await DatabaseService.instance.database;
+    await db.update(
+      'warehouse_inventory',
+      {
+        'expiry_date': date?.toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'warehouse_id = ? AND product_id = ?',
+      whereArgs: [warehouseId, productId],
+    );
+    final idx = _inventory.indexWhere(
+        (i) => i.warehouseId == warehouseId && i.productId == productId);
+    if (idx != -1) {
+      _inventory[idx].expiryDate = date;
+      notifyListeners();
+    }
+  }
+
   // ─── LOAD ────────────────────────────────────────────────────────────────
   Future<void> loadAll() async {
     _isLoading = true;
@@ -67,15 +115,31 @@ class WarehouseProvider extends ChangeNotifier {
     required double sellingPrice,
     required String emoji,
     String? barcode,
+    int? warehouseId,
+    DateTime? expiryDate,
   }) async {
     final db = await DatabaseService.instance.database;
     final now = DateTime.now().toIso8601String();
-    await db.insert('products', {
+    final productId = await db.insert('products', {
       'sku': sku, 'name': name, 'category_id': categoryId, 'unit': unit,
       'cost_price': costPrice, 'selling_price': sellingPrice,
       'emoji': emoji, 'barcode': barcode, 'status': 'active',
       'created_at': now, 'updated_at': now,
     });
+    
+    if (warehouseId != null) {
+      await db.insert('warehouse_inventory', {
+        'warehouse_id': warehouseId,
+        'product_id': productId,
+        'quantity': 0,
+        'min_quantity': 5,
+        'expiry_date': expiryDate?.toIso8601String(),
+        'updated_at': now,
+      });
+      // Tải lại inventory nếu đang ở đúng kho
+      await loadInventoryForWarehouse(warehouseId);
+    }
+    
     _products = await DatabaseService.instance.getAllProducts();
     notifyListeners();
   }
@@ -109,7 +173,10 @@ class WarehouseProvider extends ChangeNotifier {
   Future<void> deleteProduct(int productId) async {
     final db = await DatabaseService.instance.database;
     await db.delete('products', where: 'id = ?', whereArgs: [productId]);
+    // Also delete inventory associated with this product
+    await db.delete('warehouse_inventory', where: 'product_id = ?', whereArgs: [productId]);
     _products.removeWhere((p) => p.id == productId);
+    _inventory.removeWhere((i) => i.productId == productId);
     notifyListeners();
   }
 

@@ -26,7 +26,11 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl.addListener(() {
+      if (!mounted) return;
+      setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadInventory());
   }
 
@@ -89,6 +93,12 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
         categories: context.read<WarehouseProvider>().categories,
         onSave: (data) async {
           final prov = context.read<WarehouseProvider>();
+          final auth = context.read<AuthProvider>();
+          final storeId = auth.currentUser?.storeId;
+          final wId = storeId == null 
+              ? prov.mainWarehouse()?.id 
+              : prov.warehousesForStore(storeId).firstOrNull?.id;
+
           if (product == null) {
             await prov.addProduct(
               sku: data['sku'] as String,
@@ -99,6 +109,8 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
               sellingPrice: data['sellingPrice'] as double,
               emoji: data['emoji'] as String,
               barcode: data['barcode'] as String?,
+              warehouseId: wId,
+              expiryDate: data['expiryDate'] as DateTime?,
             );
           } else {
             await prov.updateProduct(product,
@@ -222,6 +234,7 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
               tabs: const [
                 Tab(text: '📦 Hàng hóa', icon: null),
                 Tab(text: '📊 Tồn kho', icon: null),
+                Tab(text: '📅 Hạn dùng', icon: null),
               ],
             ),
           ),
@@ -244,9 +257,10 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
                       : null,
                 ),
               ),
-              const SizedBox(height: 8),
-              // Filters
-              Row(children: [
+              if (_tabCtrl.index == 0) ...[
+                const SizedBox(height: 8),
+                // Filters
+                Row(children: [
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -296,8 +310,9 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
                   ),
                 ),
               ]),
-            ]),
-          ),
+            ],
+          ]),
+        ),
 
           Expanded(
             child: TabBarView(
@@ -310,18 +325,21 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
 
                 // ─── Tab 2: Inventory ───
                 _buildInventoryTab(prov, storeId),
+
+                // ─── Tab 3: Expiry ───
+                _buildExpiryTab(prov),
               ],
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: _tabCtrl.index == 1 ? FloatingActionButton.extended(
         onPressed: () => _showProductDialog(),
         backgroundColor: const Color(0xFF2D7A50),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Thêm sản phẩm', style: TextStyle(fontWeight: FontWeight.w600)),
-      ),
+      ) : null,
     );
   }
 
@@ -341,19 +359,59 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
       itemCount: products.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (_, i) => _ProductCard(
-        product: products[i],
-        onEdit: () => _showProductDialog(product: products[i]),
-        onDelete: () => _confirmDelete(context, products[i]),
-        onToggle: () {
-          if (products[i].status == 'active') {
-            _confirmToggleOff(context, products[i]);
-          } else {
-            context.read<WarehouseProvider>().toggleProductStatus(products[i]);
-            _showSnack('Đã bật ${products[i].name}');
-          }
-        },
-      ),
+      itemBuilder: (_, i) {
+        final product = products[i];
+        
+        // Find expiry status for this product across all inventory batches
+        final invs = prov.inventory.where((inv) => inv.productId == product.id && inv.expiryDate != null).toList();
+        
+        bool hasExpired = false;
+        bool hasExpiring = false;
+        bool hasValid = false;
+        final now = DateTime.now();
+        
+        for (final inv in invs) {
+          final days = inv.expiryDate!.difference(now).inDays;
+          if (days < 0) hasExpired = true;
+          else if (days <= 30) hasExpiring = true;
+          else hasValid = true;
+        }
+        
+        String? expiryLabel;
+        Color? expiryColor;
+        Color? expiryBg;
+        
+        if (hasExpired) {
+          expiryLabel = 'Có hàng hết hạn!';
+          expiryColor = AppColors.error;
+          expiryBg = AppColors.errorLight;
+        } else if (hasExpiring) {
+          expiryLabel = 'Sắp hết hạn';
+          expiryColor = AppColors.warning;
+          expiryBg = AppColors.warningLight;
+        } else if (hasValid) {
+          expiryLabel = 'Còn hạn';
+          expiryColor = AppColors.success;
+          expiryBg = AppColors.successLight;
+        }
+
+        return _ProductCard(
+          product: product,
+          expiryLabel: expiryLabel,
+          expiryColor: expiryColor,
+          expiryBgColor: expiryBg,
+          onEdit: () => _showProductDialog(product: product),
+          onDelete: () => _confirmDelete(context, product),
+          onToggle: () {
+            if (product.status == 'active') {
+              _confirmToggleOff(context, product);
+            } else {
+              context.read<WarehouseProvider>().toggleProductStatus(product);
+              _showSnack('Đã bật ${product.name}');
+            }
+          },
+        );
+      },
     );
   }
 
@@ -388,6 +446,124 @@ class _WarehouseProductScreenState extends State<WarehouseProductScreen>
       },
     );
   }
+
+  // ─── EXPIRY TAB ──────────────────────────────────────────────────────────
+  Widget _buildExpiryTab(WarehouseProvider prov) {
+    final now = DateTime.now();
+    final expired = prov.expiredItems;
+    final valid = prov.validItems;
+    final expiring30 = prov.expiringWithin(30);
+
+    // Tất cả items có ngày hạn, sắp xếp: hết hạn trước, sau đó sắp hết, rồi còn hạn lâu
+    final allWithExpiry = [
+      ...prov.inventory.where((i) => i.expiryDate != null),
+    ]..sort((a, b) {
+        final da = a.expiryDate!;
+        final db = b.expiryDate!;
+        return da.compareTo(db); // cũ nhất lên đầu
+      });
+
+    if (prov.inventory.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('📅', style: TextStyle(fontSize: 52)),
+            SizedBox(height: 12),
+            Text('Chưa có dữ liệu tồn kho',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // ── Summary Cards ──
+        Container(
+          color: AppColors.surface,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          child: Row(
+            children: [
+              _ExpiryStatCard(
+                icon: Icons.check_circle_outline,
+                label: 'Còn hạn',
+                count: valid.length,
+                color: AppColors.success,
+                bgColor: AppColors.successLight,
+              ),
+              const SizedBox(width: 8),
+              _ExpiryStatCard(
+                icon: Icons.warning_amber_rounded,
+                label: 'Sắp hết hạn',
+                count: expiring30.length,
+                color: AppColors.warning,
+                bgColor: AppColors.warningLight,
+              ),
+              const SizedBox(width: 8),
+              _ExpiryStatCard(
+                icon: Icons.cancel_outlined,
+                label: 'Hết hạn',
+                count: expired.length,
+                color: AppColors.error,
+                bgColor: AppColors.errorLight,
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // ── List ──
+        Expanded(
+          child: allWithExpiry.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Không có sản phẩm có ngày hạn dùng',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+                  itemCount: allWithExpiry.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) => _ExpiryCard(
+                    inv: allWithExpiry[i],
+                    now: now,
+                    onEditExpiry: () => _showEditExpiryDialog(allWithExpiry[i]),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  void _showEditExpiryDialog(WarehouseInventoryModel inv) async {
+    DateTime selectedDate = inv.expiryDate ?? DateTime.now().add(const Duration(days: 30));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      helpText: 'Chọn ngày hết hạn',
+      confirmText: 'Lưu',
+      cancelText: 'Hủy',
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: Theme.of(ctx).colorScheme.copyWith(
+            primary: const Color(0xFF2D7A50),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) {
+      await context.read<WarehouseProvider>().updateExpiryDate(
+            inv.warehouseId, inv.productId, picked);
+      _showSnack('Đã cập nhật ngày hết hạn: ${_fmtDate(picked)}');
+    }
+  }
+
+  String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   void _showAdjustDialog(WarehouseInventoryModel inv) {
     final ctrl = TextEditingController(text: '${inv.quantity}');
@@ -458,8 +634,14 @@ class _Chip extends StatelessWidget {
 
 class _ProductCard extends StatelessWidget {
   final ProductModel product;
+  final String? expiryLabel;
+  final Color? expiryColor, expiryBgColor;
   final VoidCallback onEdit, onDelete, onToggle;
-  const _ProductCard({required this.product, required this.onEdit, required this.onDelete, required this.onToggle});
+  const _ProductCard({
+    required this.product, 
+    this.expiryLabel, this.expiryColor, this.expiryBgColor, 
+    required this.onEdit, required this.onDelete, required this.onToggle
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -473,40 +655,35 @@ class _ProductCard extends StatelessWidget {
             ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))]
             : null,
       ),
-      child: Column(children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(children: [
-            Container(
-              width: 48, height: 48,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2D7A50).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              alignment: Alignment.center,
-              child: Text(product.emoji, style: const TextStyle(fontSize: 24)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(children: [
+          // Emoji
+          Container(
+            width: 48, height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2D7A50).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 12),
-            Expanded(child: Column(
+            alignment: Alignment.center,
+            child: Text(product.emoji, style: const TextStyle(fontSize: 24)),
+          ),
+          const SizedBox(width: 14),
+          
+          // Left Info
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  Expanded(child: Text(product.name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 14,
-                        color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
-                      ), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  if (!isActive)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: AppColors.errorLight, borderRadius: BorderRadius.circular(5)),
-                      child: const Text('Không hoạt động', style: TextStyle(fontSize: 10, color: AppColors.error)),
-                    ),
-                ]),
-                const SizedBox(height: 2),
-                Text('SKU: ${product.sku}  ·  ${product.unit}',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+                Text(product.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14,
+                      color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
+                    ), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 3),
+                Text('SKU: ${product.sku}  ·  ${product.unit}  ·  Danh mục: ${product.categoryName ?? ''}',
+                    style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+                const SizedBox(height: 5),
                 Row(children: [
                   Text('Bán: ', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                   Text(_fmtCurrency(product.sellingPrice),
@@ -517,27 +694,70 @@ class _ProductCard extends StatelessWidget {
                       style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
                 ]),
               ],
-            )),
-          ]),
-        ),
-        // Action row
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant.withValues(alpha: 0.5),
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+            ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          child: Row(children: [
-            Text(product.categoryName ?? '', style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
-            const Spacer(),
-            _Btn(label: isActive ? 'Tắt' : 'Bật', color: isActive ? AppColors.warning : AppColors.success, onTap: onToggle),
-            const SizedBox(width: 6),
-            _Btn(label: 'Sửa', color: AppColors.info, onTap: onEdit),
-            const SizedBox(width: 6),
-            _Btn(label: 'Xóa', color: AppColors.error, onTap: onDelete),
-          ]),
-        ),
-      ]),
+          
+          const SizedBox(width: 16),
+          
+          // Right Badges & Actions
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Badges
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isActive ? AppColors.successLight : AppColors.errorLight,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(isActive ? Icons.check_circle_outline : Icons.cancel_outlined, 
+                             size: 11, color: isActive ? AppColors.success : AppColors.error),
+                        const SizedBox(width: 4),
+                        Text(isActive ? 'Đang hoạt động' : 'Không hoạt động', 
+                             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isActive ? AppColors.success : AppColors.error)),
+                      ],
+                    ),
+                  ),
+                  if (expiryLabel != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: expiryBgColor, borderRadius: BorderRadius.circular(5)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_today, size: 10, color: expiryColor),
+                          const SizedBox(width: 4),
+                          Text(expiryLabel!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: expiryColor)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Buttons
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _Btn(label: isActive ? 'Tắt' : 'Bật', color: isActive ? AppColors.warning : AppColors.success, onTap: onToggle),
+                  const SizedBox(width: 6),
+                  _Btn(label: 'Sửa', color: AppColors.info, onTap: onEdit),
+                  const SizedBox(width: 6),
+                  _Btn(label: 'Xóa', color: AppColors.error, onTap: onDelete),
+                ],
+              ),
+            ],
+          ),
+        ]),
+      ),
     );
   }
 
@@ -637,6 +857,7 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl, _skuCtrl, _costCtrl, _sellCtrl, _unitCtrl, _emojiCtrl, _barcodeCtrl;
   int? _categoryId;
+  DateTime? _expiryDate;
   bool _saving = false;
 
   @override
@@ -671,6 +892,7 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
       'sellingPrice': double.tryParse(_sellCtrl.text.trim()) ?? 0.0,
       'emoji': _emojiCtrl.text.trim().isEmpty ? '🧋' : _emojiCtrl.text.trim(),
       'barcode': _barcodeCtrl.text.trim().isEmpty ? null : _barcodeCtrl.text.trim(),
+      'expiryDate': _expiryDate,
     });
     if (mounted) {
       Navigator.pop(context);
@@ -754,6 +976,42 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                     validator: (v) => v == null ? 'Chọn danh mục' : null,
                   ),
                   const SizedBox(height: 12),
+                  // Expiry
+                  if (!isEdit) ...[
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _expiryDate ?? DateTime.now().add(const Duration(days: 30)),
+                          firstDate: DateTime.now().add(const Duration(days: 1)),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) setState(() => _expiryDate = picked);
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade400, width: 1), 
+                          borderRadius: BorderRadius.circular(4)
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(_expiryDate == null 
+                                ? 'Ngày hết hạn (không bắt buộc)' 
+                                : 'Hạn sử dụng: ${_expiryDate!.day.toString().padLeft(2,'0')}/${_expiryDate!.month.toString().padLeft(2,'0')}/${_expiryDate!.year}',
+                                style: TextStyle(
+                                  color: _expiryDate == null ? AppColors.textHint : AppColors.textPrimary,
+                                  fontSize: 16
+                                )),
+                            const Icon(Icons.calendar_today, size: 20, color: AppColors.textSecondary),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   // Price row
                   Row(children: [
                     Expanded(child: TextFormField(
@@ -796,6 +1054,216 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
             ),
           ),
         ]),
+      ),
+    );
+  }
+}
+
+// ─── EXPIRY STAT CARD ─────────────────────────────────────────────────────────
+
+class _ExpiryStatCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int count;
+  final Color color;
+  final Color bgColor;
+  const _ExpiryStatCard({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.color,
+    required this.bgColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(height: 4),
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── EXPIRY CARD ──────────────────────────────────────────────────────────────
+
+class _ExpiryCard extends StatelessWidget {
+  final WarehouseInventoryModel inv;
+  final DateTime now;
+  final VoidCallback onEditExpiry;
+  const _ExpiryCard({required this.inv, required this.now, required this.onEditExpiry});
+
+  @override
+  Widget build(BuildContext context) {
+    final expiry = inv.expiryDate;
+    final isExpired = expiry != null && expiry.isBefore(now);
+    final daysLeft = expiry?.difference(now).inDays;
+    final isExpiring = !isExpired && daysLeft != null && daysLeft <= 30;
+
+    final Color cardColor;
+    final Color accentColor;
+    final Color badgeBg;
+    final IconData statusIcon;
+
+    if (isExpired) {
+      cardColor = AppColors.errorLight;
+      accentColor = AppColors.error;
+      badgeBg = AppColors.errorLight;
+      statusIcon = Icons.cancel_outlined;
+    } else if (isExpiring) {
+      cardColor = AppColors.warningLight;
+      accentColor = AppColors.warning;
+      badgeBg = AppColors.warningLight;
+      statusIcon = Icons.warning_amber_rounded;
+    } else {
+      cardColor = AppColors.surface;
+      accentColor = AppColors.success;
+      badgeBg = AppColors.successLight;
+      statusIcon = Icons.check_circle_outline;
+    }
+
+    final expiryStr = expiry != null
+        ? '${expiry.day.toString().padLeft(2, '0')}/${expiry.month.toString().padLeft(2, '0')}/${expiry.year}'
+        : '--';
+
+    final daysStr = daysLeft == null
+        ? ''
+        : isExpired
+            ? 'Quá hạn ${(-daysLeft)} ngày'
+            : daysLeft == 0
+                ? 'Hết hạn hôm nay!'
+                : 'Còn $daysLeft ngày';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1.2),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 5, offset: const Offset(0, 2))
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            // Status icon circle
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: badgeBg,
+                shape: BoxShape.circle,
+                border: Border.all(color: accentColor.withValues(alpha: 0.4)),
+              ),
+              alignment: Alignment.center,
+              child: Icon(statusIcon, color: accentColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            // Product info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    inv.productName ?? 'Sản phẩm #${inv.productId}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    inv.productSku ?? '',
+                    style: const TextStyle(fontSize: 11, color: AppColors.textHint),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Icon(Icons.calendar_today, size: 11, color: accentColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      'HSD: $expiryStr',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: accentColor,
+                      ),
+                    ),
+                    if (daysStr.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          daysStr,
+                          style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ]),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Right side: qty + edit button
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${inv.quantity}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  'đơn vị',
+                  style: const TextStyle(fontSize: 10, color: AppColors.textHint),
+                ),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: onEditExpiry,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2D7A50).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                      Icon(Icons.edit_calendar, size: 12, color: Color(0xFF2D7A50)),
+                      SizedBox(width: 3),
+                      Text('Sửa', style: TextStyle(fontSize: 11, color: Color(0xFF2D7A50), fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
