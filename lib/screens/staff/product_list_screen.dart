@@ -25,7 +25,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
   void _load() {
     final f = DatabaseService.instance.getProductsActive();
-    if (mounted) setState(() => _productsFuture = f);
+    if (mounted) setState(() { _productsFuture = f; });
   }
 
   @override

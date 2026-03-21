@@ -26,7 +26,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
   void _load() {
     final f = _fetch();
-    if (mounted) setState(() => _ordersFuture = f);
+    if (mounted) setState(() { _ordersFuture = f; });
   }
 
   Future<List<SalesOrderModel>> _fetch() async {
@@ -58,7 +58,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 final picked = await showDatePicker(context: context, initialDate: _filterDate ?? DateTime.now(),
                   firstDate: DateTime.now().subtract(const Duration(days: 90)), lastDate: DateTime.now(),
                   builder: (ctx, child) => Theme(data: ThemeData(colorSchemeSeed: AppColors.primary), child: child!));
-                setState(() => _filterDate = picked); _load();
+                setState(() { _filterDate = picked; }); _load();
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
@@ -99,7 +99,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                   final isSel = _selectedOrder?.id == o.id;
                   final payMethod = o.payments.isNotEmpty ? o.payments.first.paymentMethod : 'cash';
                   return GestureDetector(
-                    onTap: () => setState(() => _selectedOrder = isSel ? null : o),
+                    onTap: () => setState(() { _selectedOrder = isSel ? null : o; }),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       margin: const EdgeInsets.only(bottom: 8),

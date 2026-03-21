@@ -36,7 +36,7 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
 
   void _load() {
     final f = _fetch();
-    if (mounted) setState(() => _dataFuture = f);
+    if (mounted) setState(() { _dataFuture = f; });
   }
 
   Future<_StaffPageData> _fetch() async {
@@ -147,67 +147,72 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
       final curUser = auth.currentUser;
 
       // Perform updates
-      final toDelete = currentAssignments.where((a) => !selectedShiftIds.contains(a.shiftId)).toList();
-      for (var a in toDelete) {
-        await DatabaseService.instance.deleteShiftAssignment(a.id);
-      }
-      
-      final toAddIds = selectedShiftIds.where((id) => !initiallySelected.contains(id)).toList();
-      for (var id in toAddIds) {
-        final assignment = ShiftAssignmentModel(
-          id: 0,
-          shiftId: id,
-          userId: staff.id,
-          workDate: date,
-          status: 'scheduled',
-          assignedBy: curUser?.id ?? 0,
-          createdAt: DateTime.now(),
-        );
-        await DatabaseService.instance.insertShiftAssignment(assignment);
-      }
-
-      // Check if any change actually happened to decide on notification
-      final hasChanges = toDelete.isNotEmpty || toAddIds.isNotEmpty;
-
-      if (hasChanges && curUser != null) {
-        // 1. Notify Staff
-        await DatabaseService.instance.insertNotification(
-          type: 'system',
-          title: 'Cập nhật lịch làm',
-          content: '${curUser.fullName} đã cập nhật lịch làm ngày ${FormatUtils.formatDate(date)} cho bạn.',
-          targetUserId: staff.id,
-          storeId: staff.storeId,
-        );
-        
-        // 2. Notify Manager (if different from staff)
-        if (curUser.id != staff.id) {
-          await DatabaseService.instance.insertNotification(
-            type: 'system',
-            title: 'Xếp ca thành công',
-            content: 'Bạn đã cập nhật lịch làm ngày ${FormatUtils.formatDate(date)} cho nhân viên ${staff.fullName}.',
-            targetUserId: curUser.id,
-            storeId: curUser.storeId,
-          );
+      try {
+        final toDelete = currentAssignments.where((a) => !selectedShiftIds.contains(a.shiftId)).toList();
+        for (var a in toDelete) {
+          await DatabaseService.instance.deleteShiftAssignment(a.id);
         }
         
-        // Reload bell
-        await np.loadNotifications(curUser.id);
-      }
+        final toAddIds = selectedShiftIds.where((id) => !initiallySelected.contains(id)).toList();
+        for (var id in toAddIds) {
+          final assignment = ShiftAssignmentModel(
+            id: 0,
+            shiftId: id,
+            userId: staff.id,
+            workDate: date,
+            status: 'scheduled',
+            assignedBy: curUser?.id ?? 0,
+            createdAt: DateTime.now(),
+          );
+          await DatabaseService.instance.insertShiftAssignment(assignment);
+        }
 
-      _load();
-      
-      if (hasChanges) {
-        messenger.showSnackBar(SnackBar(
-          content: Text('Đã cập nhật ca làm & gửi thông báo cho ${staff.fullName}'),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
-        ));
-      } else {
-        messenger.showSnackBar(const SnackBar(
-          content: Text('Không có thay đổi nào trong ca làm.'),
-          behavior: SnackBarBehavior.floating,
-        ));
+        // Check if any change actually happened to decide on notification
+        final hasChanges = toDelete.isNotEmpty || toAddIds.isNotEmpty;
+
+        if (hasChanges && curUser != null) {
+          // 1. Notify Staff
+          await DatabaseService.instance.insertNotification(
+            type: 'system',
+            title: 'Cập nhật lịch làm',
+            content: '${curUser.fullName} đã cập nhật lịch làm ngày ${FormatUtils.formatDate(date)} cho bạn.',
+            targetUserId: staff.id,
+            storeId: staff.storeId,
+          );
+          
+          // 2. Notify Manager (if different from staff)
+          if (curUser.id != staff.id) {
+            await DatabaseService.instance.insertNotification(
+              type: 'system',
+              title: 'Xếp ca thành công',
+              content: 'Bạn đã cập nhật lịch làm ngày ${FormatUtils.formatDate(date)} cho nhân viên ${staff.fullName}.',
+              targetUserId: curUser.id,
+              storeId: curUser.storeId,
+            );
+          }
+          
+          // Reload bell
+          await np.loadNotifications(curUser.id);
+        }
+
+        _load();
+        
+        if (hasChanges) {
+          messenger.showSnackBar(SnackBar(
+            content: Text('Đã cập nhật ca làm & gửi thông báo cho ${staff.fullName}'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+          ));
+        } else {
+          messenger.showSnackBar(const SnackBar(
+            content: Text('Không có thay đổi nào trong ca làm.'),
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
+      } catch (e) {
+        _load();
+        messenger.showSnackBar(SnackBar(content: Text('Lỗi khi cập nhật ca làm: $e'), backgroundColor: AppColors.error));
       }
     }
   }
@@ -223,7 +228,7 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
 
     List<int> toMarkIds = [];
 
-    await showDialog(
+    final bool? result = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
@@ -251,7 +256,7 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
                ),
             ),
             actions: [
-               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
                ElevatedButton(
                  onPressed: toMarkIds.isEmpty ? null : () async {
                     final confirm = await showDialog<bool>(
@@ -266,15 +271,19 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
                       )
                     );
                     if (confirm != true) return;
-                    bool updatedAny = false;
-                    for (var id in toMarkIds) {
-                       await DatabaseService.instance.updateShiftAssignmentStatus(id, 'absent');
-                       updatedAny = true;
-                    }
-                    if (updatedAny && ctx.mounted) {
-                       Navigator.pop(ctx, true); // Return true to indicate success
-                    } else if (ctx.mounted) {
-                       Navigator.pop(ctx, false);
+                    
+                    try {
+                      for (var id in toMarkIds) {
+                        await DatabaseService.instance.updateShiftAssignmentStatus(id, 'absent');
+                      }
+                      if (ctx.mounted) {
+                        Navigator.pop(ctx, true); // Return true to indicate success
+                      }
+                    } catch (e) {
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Lỗi khi cập nhật: $e'), backgroundColor: AppColors.error));
+                        Navigator.pop(ctx, false);
+                      }
                     }
                  }, 
                  child: const Text('Xác nhận nghỉ')
@@ -284,40 +293,45 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
         }
       )
     );
-
-    // Now handle notifications based on result
-    if (toMarkIds.isNotEmpty && curUser != null) {
+    
+    // Now handle notifications ONLY if result is true
+    if (result == true && curUser != null) {
        final messenger = ScaffoldMessenger.of(context);
        final np = context.read<NotificationProvider>();
-
-       // Notify Staff
-       await DatabaseService.instance.insertNotification(
-          type: 'system',
-          title: 'Báo nghỉ ca làm',
-          content: 'Quản lý ${curUser.fullName} đã đánh dấu nghỉ ${toMarkIds.length} ca cho bạn vào ngày ${FormatUtils.formatDate(date)}.',
-          targetUserId: staff.id,
-          storeId: staff.storeId,
-       );
        
-       // Notify Manager
-       if (curUser.id != staff.id) {
-          await DatabaseService.instance.insertNotification(
-             type: 'system',
-             title: 'Đánh dấu nghỉ thành công',
-             content: 'Bạn đã đánh dấu nghỉ ${toMarkIds.length} ca cho nhân viên ${staff.fullName} vào ngày ${FormatUtils.formatDate(date)}.',
-             targetUserId: curUser.id,
-             storeId: curUser.storeId,
-          );
+       try {
+         // Notify Staff
+         await DatabaseService.instance.insertNotification(
+            type: 'system',
+            title: 'Báo nghỉ ca làm',
+            content: 'Quản lý ${curUser.fullName} đã đánh dấu nghỉ ${toMarkIds.length} ca cho bạn vào ngày ${FormatUtils.formatDate(date)}.',
+            targetUserId: staff.id,
+            storeId: staff.storeId,
+         );
+         
+         // Notify Manager
+         if (curUser.id != staff.id) {
+            await DatabaseService.instance.insertNotification(
+               type: 'system',
+               title: 'Đánh dấu nghỉ thành công',
+               content: 'Bạn đã đánh dấu nghỉ ${toMarkIds.length} ca cho nhân viên ${staff.fullName} vào ngày ${FormatUtils.formatDate(date)}.',
+               targetUserId: curUser.id,
+               storeId: curUser.storeId,
+            );
+         }
+         
+         await np.loadNotifications(curUser.id);
+         _load();
+         messenger.showSnackBar(SnackBar(
+            content: Text('Đã đánh dấu nghỉ ca cho ${staff.fullName} & gửi thông báo'),
+            backgroundColor: AppColors.warning,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+         ));
+       } catch (e) {
+         _load(); // Still refresh UI
+         messenger.showSnackBar(SnackBar(content: Text('Cập nhật thành công nhưng không gửi được thông báo: $e')));
        }
-       
-       await np.loadNotifications(curUser.id);
-       _load();
-       messenger.showSnackBar(SnackBar(
-          content: Text('Đã đánh dấu nghỉ ca cho ${staff.fullName} & gửi thông báo'),
-          backgroundColor: AppColors.warning,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
-       ));
     }
   }
 
@@ -628,34 +642,41 @@ class _ManagerStaffScreenState extends State<ManagerStaffScreen> {
                                     icon: const Icon(Icons.password, size: 16),
                                     label: const Text('Reset MK'),
                                     onPressed: () async {
-                                      await DatabaseService.instance.resetPassword(staff.id);
-                                      final curUser = context.read<AuthProvider>().currentUser;
-                                      
-                                      // Notify Staff
-                                      await DatabaseService.instance.insertNotification(
-                                         type: 'system',
-                                         title: 'Mật khẩu đã được reset',
-                                         content: 'Quản lý ${curUser?.fullName ?? ""} đã reset mật khẩu của bạn về 123456.',
-                                         targetUserId: staff.id,
-                                         storeId: staff.storeId,
-                                      );
-                                      
-                                      // Notify Manager
-                                      if (curUser != null && curUser.id != staff.id) {
-                                         await DatabaseService.instance.insertNotification(
-                                            type: 'system',
-                                            title: 'Reset mật khẩu thành công',
-                                            content: 'Bạn đã reset mật khẩu của nhân viên ${staff.fullName} về 123456.',
-                                            targetUserId: curUser.id,
-                                            storeId: curUser.storeId,
-                                         );
-                                      }
-                                      
-                                      if (mounted) {
-                                        if (curUser != null) {
-                                           context.read<NotificationProvider>().loadNotifications(curUser.id);
+                                      try {
+                                        await DatabaseService.instance.resetPassword(staff.id);
+                                        final curUser = context.read<AuthProvider>().currentUser;
+                                        
+                                        // Notify Staff
+                                        await DatabaseService.instance.insertNotification(
+                                           type: 'system',
+                                           title: 'Mật khẩu đã được reset',
+                                           content: 'Quản lý ${curUser?.fullName ?? ""} đã reset mật khẩu của bạn về 123456.',
+                                           targetUserId: staff.id,
+                                           storeId: staff.storeId,
+                                        );
+                                        
+                                        // Notify Manager
+                                        if (curUser != null && curUser.id != staff.id) {
+                                           await DatabaseService.instance.insertNotification(
+                                              type: 'system',
+                                              title: 'Reset mật khẩu thành công',
+                                              content: 'Bạn đã reset mật khẩu của nhân viên ${staff.fullName} về 123456.',
+                                              targetUserId: curUser.id,
+                                              storeId: curUser.storeId,
+                                           );
                                         }
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã reset mật khẩu của ${staff.fullName} về 123456 và gửi thông báo'), backgroundColor: AppColors.warning, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+                                        
+                                        if (mounted) {
+                                          if (curUser != null) {
+                                             context.read<NotificationProvider>().loadNotifications(curUser.id);
+                                          }
+                                          _load(); // Refresh the list (even if data doesn't change visually, it's good practice)
+                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã reset mật khẩu của ${staff.fullName} về 123456 và gửi thông báo'), backgroundColor: AppColors.warning, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi khi reset mật khẩu: $e'), backgroundColor: AppColors.error));
+                                        }
                                       }
                                     },
                                   )

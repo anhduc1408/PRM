@@ -28,7 +28,7 @@ class _StaffRevenueScreenState extends State<StaffRevenueScreen> {
   }
   void _load() {
     final f = _fetch();
-    if (mounted) setState(() => _dataFuture = f);
+    if (mounted) setState(() { _dataFuture = f; });
   }
 
   Future<_RevenueData> _fetch() async {

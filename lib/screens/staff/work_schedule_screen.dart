@@ -25,7 +25,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> {
 
   void _load() {
     final f = _fetch();
-    if (mounted) setState(() => _schedulesFuture = f);
+    if (mounted) setState(() { _schedulesFuture = f; });
   }
 
   Future<List<ShiftAssignmentModel>> _fetch() async {

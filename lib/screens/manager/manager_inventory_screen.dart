@@ -28,7 +28,7 @@ class _ManagerInventoryScreenState extends State<ManagerInventoryScreen> {
 
   void _load() {
     final f = _fetch();
-    if (mounted) setState(() => _dataFuture = f);
+    if (mounted) setState(() { _dataFuture = f; });
   }
 
   Future<_InventoryData> _fetch() async {
@@ -100,7 +100,7 @@ class _ManagerInventoryScreenState extends State<ManagerInventoryScreen> {
                            initialSelection: _selectedWarehouse,
                            onSelected: (wh) {
                              if (wh != null) {
-                               setState(() => _selectedWarehouse = wh);
+                               setState(() { _selectedWarehouse = wh; });
                                _load();
                              }
                            },
@@ -159,7 +159,7 @@ class _ManagerInventoryScreenState extends State<ManagerInventoryScreen> {
                                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                                   contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
                                                 ),
-                                                onChanged: (v) => setState(() => _searchQuery = v),
+                                                onChanged: (v) => setState(() { _searchQuery = v; }),
                                               ),
                                            ),
                                            SegmentedButton<String>(
@@ -169,7 +169,7 @@ class _ManagerInventoryScreenState extends State<ManagerInventoryScreen> {
                                                 ButtonSegment(value: 'ok', label: Text('Đủ hàng')),
                                               ],
                                               selected: {_filterStatus},
-                                              onSelectionChanged: (set) => setState(() => _filterStatus = set.first),
+                                              onSelectionChanged: (set) => setState(() { _filterStatus = set.first; }),
                                            ),
                                         ],
                                      ),

@@ -33,7 +33,7 @@ class _ManagerRevenueScreenState extends State<ManagerRevenueScreen> {
 
   void _load() {
     final f = _fetch();
-    if (mounted) setState(() => _dataFuture = f);
+    if (mounted) setState(() { _dataFuture = f; });
   }
 
   Future<_RevenueData> _fetch() async {

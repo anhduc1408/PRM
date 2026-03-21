@@ -29,7 +29,7 @@ class DatabaseService {
   Future<Database> _open() async {
     final String path;
     if (kIsWeb) {
-      path = inMemoryDatabasePath;
+      path = 'mixue_v2.db'; // Use a persistent filename for Web (IndexedDB)
     } else {
       final dbPath = await getDatabasesPath();
       path = p.join(dbPath, 'mixue_v2.db');
