@@ -134,6 +134,35 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
     }
   }
 
+  // ─── Gửi thông báo xác nhận đến IT Admin sau khi thêm nhân sự ────────────
+  Future<void> _sendAdminConfirmNotification({
+    required int adminUserId,
+    required UserModel newUser,
+    required List<StoreModel> stores,
+  }) async {
+    String resolveStoreName(int? id) {
+      if (id == null) return '';
+      try {
+        return stores.firstWhere((s) => s.id == id).name;
+      } catch (_) {
+        return '';
+      }
+    }
+
+    final storePart = newUser.storeId != null
+        ? ' tại ${resolveStoreName(newUser.storeId)}'
+        : '';
+    await DatabaseService.instance.insertNotification(
+      type: 'system',
+      title: '✅ Đã thêm nhân sự thành công',
+      content:
+          'Bạn vừa tạo tài khoản cho ${newUser.fullName} '
+          '(${newUser.role.displayName}$storePart). '
+          'Tên đăng nhập: ${newUser.username}.',
+      targetUserId: adminUserId,
+    );
+  }
+
   // ─── Gửi thông báo khi tạo user mới ──────────────────────────────────────
   Future<void> _sendWelcomeNotification({
     required int userId,
@@ -305,6 +334,16 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                           userId: newUserId, user: newUser,
                           password: password, stores: stores,
                         );
+
+                        // Gửi thông báo xác nhận đến IT Admin đang đăng nhập
+                        final itAdminId = context.read<AuthProvider>().currentUser?.id;
+                        if (itAdminId != null) {
+                          await _sendAdminConfirmNotification(
+                            adminUserId: itAdminId,
+                            newUser: newUser,
+                            stores: stores,
+                          );
+                        }
 
                         if (ctx.mounted) Navigator.pop(ctx);
                         // FIX: gọi _reload() NGOÀI async context, sau khi await xong

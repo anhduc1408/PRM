@@ -35,7 +35,7 @@ class ItShell extends StatelessWidget {
               child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
-            const Text('Mixue — IT Admin',
+            const Text('Minh Châu — IT Admin',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
           ],
         ),

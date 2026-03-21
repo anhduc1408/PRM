@@ -45,13 +45,13 @@ void main() async {
         ChangeNotifierProvider(create: (_) => WarehouseProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
-      child: const MixueApp(),
+      child: const MinhChauApp(),
     ),
   );
 }
 
-class MixueApp extends StatelessWidget {
-  const MixueApp({super.key});
+class MinhChauApp extends StatelessWidget {
+  const MinhChauApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +59,7 @@ class MixueApp extends StatelessWidget {
     final router = AppRouter.createRouter(authProvider);
 
     return MaterialApp.router(
-      title: 'Mixue Manager',
+      title: 'Minh Châu - Tạp Hóa',
       theme: AppTheme.theme,
       routerConfig: router,
       debugShowCheckedModeBanner: false,

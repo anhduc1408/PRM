@@ -154,7 +154,7 @@ class _CeoDashboardScreenState extends State<CeoDashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Tổng quan chuỗi Mixue',
+                    Text('Tổng quan chuỗi Tạp Hóa Minh Châu',
                         style: Theme.of(context).textTheme.headlineMedium),
                     Text(_rangeLabel(),
                         style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),

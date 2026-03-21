@@ -72,13 +72,13 @@ class _StaffShellState extends State<StaffShell> {
                 color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text('🧋', style: TextStyle(fontSize: 18)),
+              child: const Text('🏪', style: TextStyle(fontSize: 18)),
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Mixue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
+                const Text('Minh Châu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
                 Text(
                   _storeName ?? (auth.currentUser?.storeId != null ? 'Cửa hàng #${auth.currentUser!.storeId}' : 'Nhân viên'),
                   style: const TextStyle(color: Colors.white70, fontSize: 12),

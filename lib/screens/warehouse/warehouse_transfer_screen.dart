@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/enums.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/warehouse_provider.dart';
+import '../../core/services/notification_service.dart';
 import '../../models/warehouse_model.dart';
 import '../../models/stock_transfer_model.dart';
 
@@ -68,15 +69,27 @@ class _WarehouseTransferScreenState extends State<WarehouseTransferScreen> {
       note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
     );
     if (mounted) {
-      setState(() {
-        _submitting = false;
-        if (ok) {
+      if (ok) {
+        // Lấy tên kho để đưa vào notification
+        final prov = context.read<WarehouseProvider>();
+        final fromWh = prov.warehouses.where((w) => w.id == _fromWarehouseId).firstOrNull;
+        final toWh   = prov.warehouses.where((w) => w.id == _toWarehouseId).firstOrNull;
+        final totalQty = items.fold<int>(0, (s, e) => s + (e['qty'] ?? 0));
+        await NotificationService.transferCreated(
+          actorId: user?.id ?? 0,
+          fromWarehouse: fromWh?.name ?? 'Kho xuất',
+          toWarehouse: toWh?.name ?? 'Kho nhận',
+          itemCount: items.length,
+          totalQty: totalQty,
+        );
+        setState(() {
           _selectedItems.clear();
           _fromWarehouseId = null;
           _toWarehouseId = null;
           _noteCtrl.clear();
-        }
-      });
+        });
+      }
+      setState(() => _submitting = false);
       _showSnack(ok ? '✅ Đã tạo phiếu phân phối!' : '❌ Có lỗi xảy ra!', isError: !ok);
     }
   }
