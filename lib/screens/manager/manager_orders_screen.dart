@@ -34,7 +34,7 @@ class _ManagerOrdersScreenState extends State<ManagerOrdersScreen> {
 
   void _load() {
     final f = _fetch();
-    if (mounted) setState(() => _dataFuture = f);
+    if (mounted) setState(() { _dataFuture = f; });
   }
 
   Future<_OrdersData> _fetch() async {

@@ -20,8 +20,8 @@ void main() async {
 
   // Platform-specific SQLite init
   if (kIsWeb) {
-    // Web: use in-memory FFI (no web worker)
-    databaseFactory = databaseFactoryFfiWebNoWebWorker;
+    // Web: use persistent FFI (IndexedDB)
+    databaseFactory = databaseFactoryFfiWeb;
   } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     // Desktop: sqflite needs the FFI factory
     sqfliteFfiInit();

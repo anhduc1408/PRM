@@ -25,7 +25,7 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
 
   void _load() {
     final f = _fetch();
-    if (mounted) setState(() => _ordersFuture = f);
+    if (mounted) setState(() { _ordersFuture = f; });
   }
 
   Future<List<SalesOrderModel>> _fetch() async {
