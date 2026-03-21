@@ -34,9 +34,17 @@ class DatabaseService {
       final dbPath = await getDatabasesPath();
       path = p.join(dbPath, 'mixue_v2.db');
     }
-    return openDatabase(path, version: 2, onCreate: (db, v) async {
+    return openDatabase(path, version: 3, onCreate: (db, v) async {
       await _createTables(db);
       await _seedData(db);
+    }, onUpgrade: (db, oldV, newV) async {
+      if (oldV < 3) {
+        try {
+          await db.execute('ALTER TABLE warehouse_inventory ADD COLUMN expiry_date TEXT;');
+        } catch (e) {
+          // ignore error if column already exists
+        }
+      }
     });
   }
 
@@ -127,6 +135,7 @@ class DatabaseService {
         product_id INTEGER NOT NULL,
         quantity INTEGER NOT NULL DEFAULT 0,
         min_quantity INTEGER NOT NULL DEFAULT 10,
+        expiry_date TEXT,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
         FOREIGN KEY (product_id) REFERENCES products(id),
@@ -326,9 +335,11 @@ class DatabaseService {
     // Warehouse Inventory
     for (int wh = 1; wh <= 3; wh++) {
       for (int prod = 1; prod <= 10; prod++) {
+        final expiry = DateTime.now().add(Duration(days: rng.nextInt(180) + 30));
         await db.insert('warehouse_inventory', {
           'warehouse_id': wh, 'product_id': prod,
-          'quantity': rng.nextInt(500) + 150, 'min_quantity': 50, 'updated_at': now,
+          'quantity': rng.nextInt(500) + 150, 'min_quantity': 50, 
+          'expiry_date': expiry.toIso8601String(), 'updated_at': now,
         });
       }
     }
@@ -816,7 +827,7 @@ class DatabaseService {
     required int transferId,
     required int toWarehouseId,
     required int receivedBy,
-    required List<Map<String, int>> items,
+    required List<Map<String, dynamic>> items,
   }) async {
     final db = await database;
     final now = DateTime.now().toIso8601String();
@@ -835,15 +846,23 @@ class DatabaseService {
         );
         if (invRows.isNotEmpty) {
           final currentQty = invRows.first['quantity'] as int;
+          final updateData = <String, Object?>{
+             'quantity': currentQty + (item['actualQty'] as int), 
+             'updated_at': now
+          };
+          if (item['expiryDate'] != null) {
+             updateData['expiry_date'] = item['expiryDate'];
+          }
           await txn.update(
             'warehouse_inventory',
-            {'quantity': currentQty + item['actualQty']!, 'updated_at': now},
+            updateData,
             where: 'id = ?', whereArgs: [invRows.first['id']],
           );
         } else {
           await txn.insert('warehouse_inventory', {
             'warehouse_id': toWarehouseId, 'product_id': item['productId']!,
-            'quantity': item['actualQty']!, 'min_quantity': 10, 'updated_at': now,
+            'quantity': item['actualQty']!, 'min_quantity': 10, 
+            'expiry_date': item['expiryDate'], 'updated_at': now,
           });
         }
       }
@@ -1299,6 +1318,7 @@ class DatabaseService {
   WarehouseInventoryModel _mapInventory(Map<String, dynamic> r) => WarehouseInventoryModel(
     id: r['id'] as int, warehouseId: r['warehouse_id'] as int, productId: r['product_id'] as int,
     quantity: r['quantity'] as int, minQuantity: r['min_quantity'] as int,
+    expiryDate: r['expiry_date'] != null ? DateTime.parse(r['expiry_date'] as String) : null,
     updatedAt: DateTime.parse(r['updated_at'] as String),
     productName: r['product_name'] as String?, warehouseName: r['warehouse_name'] as String?,
     productSku: r['product_sku'] as String?,
